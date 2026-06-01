@@ -33,40 +33,67 @@ SELECT
   (ARRAY['חייל','צוות','פלוגה','גדוד','חטיבה'])[floor(random()*5)+1]
 FROM generate_series(1, 500);
 
+-- יצירת 20,000 רשומות ציוד:
+-- 10,000 ראשונות יקבלו type_id של סוג ציוד שדורש מספר סידורי
+-- 10,000 הבאות יקבלו type_id של סוג ציוד שלא דורש מספר סידורי
 INSERT INTO EquipmentAsset 
 (type_id, location_id, condition_status, intake_date, availability_status)
 SELECT
-  (floor(random() * 500) + 1)::int,
+  CASE
+    WHEN i <= 10000 THEN
+      2 * ((floor(random() * 250) + 1)::int)      -- type_id זוגי: requires_serial_number = true
+    ELSE
+      2 * (floor(random() * 250)::int) + 1        -- type_id אי־זוגי: requires_serial_number = false
+  END,
   (floor(random() * 500) + 1)::int,
   (ARRAY['תקין','פגום','בתיקון','חסר'])[floor(random()*4)+1],
   CURRENT_DATE - ((random() * 1000)::int),
   (ARRAY['זמין','מוקצה','לא זמין'])[floor(random()*3)+1]
-FROM generate_series(1, 20000);
+FROM generate_series(1, 20000) AS i;
 
+-- הכנסת ציוד בודד רק עבור סוגי ציוד שדורשים מספר סידורי
 INSERT INTO EquipmentItem (asset_id, serial_number)
-SELECT asset_id, 'SN-' || asset_id
-FROM EquipmentAsset
-WHERE asset_id % 2 = 1;
+SELECT 
+  ea.asset_id,
+  'SN-' || ea.asset_id
+FROM EquipmentAsset ea
+JOIN EquipmentType et ON ea.type_id = et.type_id
+WHERE et.requires_serial_number = true;
 
+-- הכנסת ציוד מלאי רק עבור סוגי ציוד שלא דורשים מספר סידורי
 INSERT INTO EquipmentStock (asset_id, quantity)
-SELECT asset_id, (floor(random() * 200) + 1)::int
-FROM EquipmentAsset
-WHERE asset_id % 2 = 0;
+SELECT 
+  ea.asset_id,
+  (floor(random() * 200) + 1)::int
+FROM EquipmentAsset ea
+JOIN EquipmentType et ON ea.type_id = et.type_id
+WHERE et.requires_serial_number = false;
 
+-- יצירת 20,000 הקצאות ציוד
+-- אם מדובר בציוד עם מספר סידורי, assigned_quantity יהיה 1
+-- אם מדובר בציוד מלאי, assigned_quantity יהיה מספר אקראי בין 1 ל־10
+WITH assignment_source AS (
+  SELECT
+    (floor(random() * 20000) + 1)::int AS asset_id,
+    (floor(random() * 500) + 1)::int AS recipient_id,
+    CURRENT_DATE - ((random() * 365)::int) AS assignment_date,
+    random() AS return_probability
+  FROM generate_series(1, 20000)
+)
 INSERT INTO EquipmentAssignment
 (asset_id, recipient_id, assignment_date, return_date, assigned_quantity, assignment_status)
 SELECT
-  (floor(random() * 20000) + 1)::int,
-  (floor(random() * 500) + 1)::int,
-  assignment_date,
+  s.asset_id,
+  s.recipient_id,
+  s.assignment_date,
   CASE 
-    WHEN random() < 0.5 THEN NULL
-    ELSE assignment_date + ((random() * 100)::int)
+    WHEN s.return_probability < 0.5 THEN NULL
+    ELSE s.assignment_date + ((random() * 100)::int)
   END,
-  (floor(random() * 10) + 1)::int,
+  CASE
+    WHEN ei.asset_id IS NOT NULL THEN 1
+    ELSE (floor(random() * 10) + 1)::int
+  END,
   (ARRAY['פעילה','הוחזרה','בוטלה'])[floor(random()*3)+1]
-FROM (
-  SELECT
-    CURRENT_DATE - ((random() * 365)::int) AS assignment_date
-  FROM generate_series(1, 20000)
-) t;
+FROM assignment_source s
+LEFT JOIN EquipmentItem ei ON s.asset_id = ei.asset_id;
