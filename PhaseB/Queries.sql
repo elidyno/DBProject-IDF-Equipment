@@ -147,7 +147,7 @@ SELECT
     et.type_name,
     COUNT(es.asset_id) AS stock_record_count,
     SUM(es.quantity) AS total_quantity,
-    AVG(es.quantity) AS average_quantity
+    ROUND(AVG(es.quantity), 2) AS average_quantity
 FROM EquipmentStock es
 JOIN EquipmentAsset ea
     ON es.asset_id = ea.asset_id
@@ -193,25 +193,24 @@ ORDER BY
 
 -- =========================================================
 -- Query 8:
--- Equipment types linked to more than one category
--- This query checks which equipment types are assigned to multiple
--- categories.
--- It demonstrates the many-to-many relationship between
--- EquipmentType and EquipmentCategory.
+-- Most assigned equipment types
+-- This query shows which equipment types were assigned the most.
+-- It helps identify the most frequently used equipment types.
 -- =========================================================
 
 SELECT
     et.type_name,
-    COUNT(ec.category_id) AS category_count
-FROM EquipmentType et
-JOIN CategoryType ct
-    ON et.type_id = ct.type_id
-JOIN EquipmentCategory ec
-    ON ct.category_id = ec.category_id
+    COUNT(a.assignment_id) AS assignment_count,
+    SUM(a.assigned_quantity) AS total_assigned_quantity,
+    MIN(a.assignment_date) AS first_assignment_date,
+    MAX(a.assignment_date) AS last_assignment_date
+FROM EquipmentAssignment a
+JOIN EquipmentAsset ea
+    ON a.asset_id = ea.asset_id
+JOIN EquipmentType et
+    ON ea.type_id = et.type_id
 GROUP BY
     et.type_name
-HAVING
-    COUNT(ec.category_id) > 1
 ORDER BY
-    category_count DESC,
-    et.type_name;
+    total_assigned_quantity DESC,
+    assignment_count DESC;
