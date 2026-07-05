@@ -74,7 +74,7 @@ JOIN EquipmentAsset ea
 JOIN EquipmentType et
     ON ea.type_id = et.type_id
 WHERE
-    a.assignment_status = 'פעילה'
+    a.assignment_status = $$פעילה$$
 GROUP BY
     r.recipient_type,
     et.type_name
@@ -92,6 +92,7 @@ ORDER BY
 
 SELECT
     a.assignment_id,
+    ea.asset_id,
     et.type_name,
     r.recipient_type,
     a.assignment_date,
@@ -107,7 +108,7 @@ JOIN Recipient r
     ON a.recipient_id = r.recipient_id
 WHERE
     a.return_date IS NULL
-    AND a.assignment_status = 'פעילה'
+    AND a.assignment_status = $$פעילה$$
 ORDER BY
     a.assignment_date;
 
@@ -195,7 +196,8 @@ ORDER BY
 -- Query 8:
 -- Most assigned equipment types
 -- This query shows which equipment types were assigned the most.
--- It helps identify the most frequently used equipment types.
+-- Canceled assignments are not included because the purpose is to
+-- analyze actual equipment usage.
 -- =========================================================
 
 SELECT
@@ -209,6 +211,8 @@ JOIN EquipmentAsset ea
     ON a.asset_id = ea.asset_id
 JOIN EquipmentType et
     ON ea.type_id = et.type_id
+WHERE
+    a.assignment_status <> $$בוטלה$$
 GROUP BY
     et.type_name
 ORDER BY
