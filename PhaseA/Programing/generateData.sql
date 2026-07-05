@@ -1,7 +1,7 @@
 -- =========================================================
 -- generateData.sql
 -- Automatic data generation for the military equipment database
--- The data uses realistic names instead of numbered examples.
+-- Clean and consistent dataset for Phase B queries
 -- =========================================================
 
 BEGIN;
@@ -21,22 +21,16 @@ RESTART IDENTITY CASCADE;
 
 -- =========================================================
 -- Insert realistic equipment categories
--- 10 levels * 10 domains * 5 usage contexts = 500 categories
--- The order is mixed so the first rows are not all from the same level.
+-- 5 levels * 5 domains * 2 contexts = 50 categories
 -- =========================================================
 
 WITH category_levels(level_order, level_name) AS (
     VALUES
         (1, $$אישי$$),
         (2, $$צוותי$$),
-        (3, $$מחלקתי$$),
-        (4, $$פלוגתי$$),
-        (5, $$גדודי$$),
-        (6, $$חטיבתי$$),
-        (7, $$לוגיסטי$$),
-        (8, $$מבצעי$$),
-        (9, $$אימונים$$),
-        (10, $$חירום$$)
+        (3, $$פלוגתי$$),
+        (4, $$גדודי$$),
+        (5, $$חטיבתי$$)
 ),
 category_domains(domain_order, domain_name) AS (
     VALUES
@@ -44,20 +38,12 @@ category_domains(domain_order, domain_name) AS (
         (2, $$מיגון$$),
         (3, $$רפואה$$),
         (4, $$לינה$$),
-        (5, $$מטבח$$),
-        (6, $$תחזוקה$$),
-        (7, $$תובלה$$),
-        (8, $$חורף$$),
-        (9, $$קיץ$$),
-        (10, $$שטח$$)
+        (5, $$תחזוקה$$)
 ),
 usage_contexts(context_order, context_name) AS (
     VALUES
         (1, $$שגרה$$),
-        (2, $$אימון$$),
-        (3, $$חירום$$),
-        (4, $$שטח$$),
-        (5, $$מחסן$$)
+        (2, $$חירום$$)
 )
 INSERT INTO EquipmentCategory (category_name)
 SELECT
@@ -73,7 +59,7 @@ ORDER BY
 
 -- =========================================================
 -- Insert realistic equipment types
--- 50 base equipment names * 10 variants = 500 equipment types
+-- 30 base equipment names * 2 variants = 60 equipment types
 -- =========================================================
 
 WITH base_equipment(item_order, item_name, requires_serial_number) AS (
@@ -89,59 +75,31 @@ WITH base_equipment(item_order, item_name, requires_serial_number) AS (
         (9, $$מטען סוללות חכם$$, TRUE),
         (10, $$פנס טקטי נטען$$, TRUE),
         (11, $$ערכת בדיקה אלקטרונית$$, TRUE),
-        (12, $$מקרן הדרכה נייד$$, TRUE),
-        (13, $$ראוטר שטח$$, TRUE),
-        (14, $$מסך שליטה נייד$$, TRUE),
-        (15, $$ערכת תקשורת לוויינית$$, TRUE),
-        (16, $$אמצעי תאורה נייד$$, TRUE),
-        (17, $$מערכת כריזה ניידת$$, TRUE),
-        (18, $$מדחס אוויר נייד$$, TRUE),
-        (19, $$ערכת צילום ותיעוד$$, TRUE),
-        (20, $$ערכת סימון אלקטרונית$$, TRUE),
+        (12, $$ראוטר שטח$$, TRUE),
+        (13, $$מסך שליטה נייד$$, TRUE),
+        (14, $$ערכת תקשורת לוויינית$$, TRUE),
+        (15, $$מערכת כריזה ניידת$$, TRUE),
 
-        (21, $$מדי א$$, FALSE),
-        (22, $$מדי ב$$, FALSE),
-        (23, $$חולצת עבודה$$, FALSE),
-        (24, $$מכנסי עבודה$$, FALSE),
-        (25, $$מעיל חורף$$, FALSE),
-        (26, $$שק שינה$$, FALSE),
-        (27, $$שמיכת צמר$$, FALSE),
-        (28, $$מזרן שטח$$, FALSE),
-        (29, $$אוהל צוות$$, FALSE),
-        (30, $$אוהל פלוגתי$$, FALSE),
-        (31, $$כיסא מתקפל$$, FALSE),
-        (32, $$שולחן מתקפל$$, FALSE),
-        (33, $$ארגז ציוד$$, FALSE),
-        (34, $$ג'ריקן מים$$, FALSE),
-        (35, $$ערכת אוכל אישית$$, FALSE),
-        (36, $$ערכת מטבח שדה$$, FALSE),
-        (37, $$ערכת עזרה ראשונה$$, FALSE),
-        (38, $$תחבושת אישית$$, FALSE),
-        (39, $$אלונקה מתקפלת$$, FALSE),
-        (40, $$אפוד זיהוי$$, FALSE),
-        (41, $$כפפות עבודה$$, FALSE),
-        (42, $$משקפי מגן$$, FALSE),
-        (43, $$קסדת עבודה$$, FALSE),
-        (44, $$ערכת ניקיון$$, FALSE),
-        (45, $$כלי עבודה בסיסיים$$, FALSE),
-        (46, $$כבל מאריך$$, FALSE),
-        (47, $$תוף חשמל$$, FALSE),
-        (48, $$שלט סימון$$, FALSE),
-        (49, $$קופסת אחסון$$, FALSE),
-        (50, $$ברזנט שטח$$, FALSE)
+        (16, $$מדי א$$, FALSE),
+        (17, $$מדי ב$$, FALSE),
+        (18, $$מעיל חורף$$, FALSE),
+        (19, $$שק שינה$$, FALSE),
+        (20, $$מזרן שטח$$, FALSE),
+        (21, $$אוהל צוות$$, FALSE),
+        (22, $$אוהל פלוגתי$$, FALSE),
+        (23, $$כיסא מתקפל$$, FALSE),
+        (24, $$שולחן מתקפל$$, FALSE),
+        (25, $$ארגז ציוד$$, FALSE),
+        (26, $$ג'ריקן מים$$, FALSE),
+        (27, $$ערכת אוכל אישית$$, FALSE),
+        (28, $$ערכת מטבח שדה$$, FALSE),
+        (29, $$ערכת עזרה ראשונה$$, FALSE),
+        (30, $$אלונקה מתקפלת$$, FALSE)
 ),
 variants(variant_order, variant_name) AS (
     VALUES
         (1, $$תקן א$$),
-        (2, $$תקן ב$$),
-        (3, $$תקן ג$$),
-        (4, $$קל משקל$$),
-        (5, $$מוקשח$$),
-        (6, $$לשטח$$),
-        (7, $$לאימון$$),
-        (8, $$לחירום$$),
-        (9, $$למחסן קדמי$$),
-        (10, $$למחסן עורפי$$)
+        (2, $$תקן ב$$)
 )
 INSERT INTO EquipmentType (type_name, requires_serial_number)
 SELECT
@@ -156,8 +114,7 @@ ORDER BY
 
 -- =========================================================
 -- Insert many-to-many links between categories and equipment types
--- Each equipment type is linked to three different categories.
--- This demonstrates the M:N relationship in the data.
+-- Each equipment type is linked to two different categories
 -- =========================================================
 
 INSERT INTO CategoryType (category_id, type_id)
@@ -167,29 +124,21 @@ SELECT DISTINCT
 FROM (
     SELECT
         et.type_id,
-        ((et.type_id - 1) % 500) + 1 AS category_id
+        ((et.type_id - 1) % 50) + 1 AS category_id
     FROM EquipmentType et
 
     UNION ALL
 
     SELECT
         et.type_id,
-        ((et.type_id + 83 - 1) % 500) + 1 AS category_id
-    FROM EquipmentType et
-
-    UNION ALL
-
-    SELECT
-        et.type_id,
-        ((et.type_id + 197 - 1) % 500) + 1 AS category_id
+        ((et.type_id + 17 - 1) % 50) + 1 AS category_id
     FROM EquipmentType et
 ) links;
 
 
 -- =========================================================
 -- Insert realistic storage locations
--- 10 location prefixes * 10 units * 5 domains = 500 locations
--- The order is mixed so the first rows are varied.
+-- 5 location prefixes * 3 units * 2 domains = 30 locations
 -- =========================================================
 
 WITH location_prefixes(prefix_order, location_prefix, location_type) AS (
@@ -198,33 +147,18 @@ WITH location_prefixes(prefix_order, location_prefix, location_type) AS (
         (2, $$מחסן קדמי$$, $$גדודי$$),
         (3, $$מחסן פלוגתי$$, $$פלוגתי$$),
         (4, $$מכולת ציוד$$, $$מכולה$$),
-        (5, $$חדר ציוד קשר$$, $$חדר ציוד$$),
-        (6, $$חדר ציוד רפואי$$, $$חדר ציוד$$),
-        (7, $$אזור אחסון חירום$$, $$חירום$$),
-        (8, $$מחסן אימונים$$, $$אימונים$$),
-        (9, $$נקודת חלוקה$$, $$לוגיסטי$$),
-        (10, $$מחסן תחזוקה$$, $$תחזוקה$$)
+        (5, $$חדר ציוד ייעודי$$, $$חדר ציוד$$)
 ),
 units(unit_order, unit_name) AS (
     VALUES
         (1, $$פלוגה א$$),
         (2, $$פלוגה ב$$),
-        (3, $$פלוגה ג$$),
-        (4, $$פלוגה ד$$),
-        (5, $$גדוד א$$),
-        (6, $$גדוד ב$$),
-        (7, $$גדוד ג$$),
-        (8, $$חפ"ק חטיבתי$$),
-        (9, $$מרכז לוגיסטי$$),
-        (10, $$יחידת מילואים$$)
+        (3, $$גדוד א$$)
 ),
 storage_domains(domain_order, domain_name) AS (
     VALUES
         (1, $$ציוד קשר$$),
-        (2, $$ציוד מיגון$$),
-        (3, $$ציוד רפואה$$),
-        (4, $$ציוד לינה$$),
-        (5, $$ציוד תחזוקה$$)
+        (2, $$ציוד לוגיסטי$$)
 )
 INSERT INTO StorageLocation (location_name, location_type)
 SELECT
@@ -241,34 +175,35 @@ ORDER BY
 
 -- =========================================================
 -- Insert recipients
--- The table only stores recipient type, so we generate 500 recipient rows.
+-- The table only stores recipient type, so we generate 80 recipient rows
 -- =========================================================
 
 INSERT INTO Recipient (recipient_type)
 SELECT
     (ARRAY[$$חייל$$, $$צוות$$, $$פלוגה$$, $$גדוד$$, $$חטיבה$$])[(floor(random() * 5) + 1)::INT]
-FROM generate_series(1, 500);
+FROM generate_series(1, 80);
 
 
 -- =========================================================
 -- Insert equipment assets
--- First 10,000 assets use equipment types that require serial numbers.
--- Next 10,000 assets use equipment types that do not require serial numbers.
+-- First 500 assets use equipment types that require serial numbers
+-- Next 500 assets use equipment types that do not require serial numbers
+-- Availability is updated later according to assignments and condition
 -- =========================================================
 
 INSERT INTO EquipmentAsset
 (type_id, location_id, condition_status, intake_date, availability_status)
 SELECT
     et.type_id,
-    (floor(random() * 500) + 1)::INT AS location_id,
+    (floor(random() * 30) + 1)::INT AS location_id,
     (ARRAY[$$תקין$$, $$פגום$$, $$בתיקון$$, $$חסר$$])[(floor(random() * 4) + 1)::INT] AS condition_status,
-    CURRENT_DATE - ((random() * 900)::INT) AS intake_date,
-    (ARRAY[$$זמין$$, $$מוקצה$$, $$לא זמין$$])[(floor(random() * 3) + 1)::INT] AS availability_status
-FROM generate_series(1, 20000) AS gs(i)
+    CURRENT_DATE - ((random() * 600)::INT) AS intake_date,
+    $$זמין$$ AS availability_status
+FROM generate_series(1, 1000) AS gs(i)
 JOIN LATERAL (
     SELECT type_id
     FROM EquipmentType
-    WHERE requires_serial_number = (gs.i <= 10000)
+    WHERE requires_serial_number = (gs.i <= 500)
     ORDER BY random()
     LIMIT 1
 ) et ON TRUE;
@@ -276,7 +211,7 @@ JOIN LATERAL (
 
 -- =========================================================
 -- Insert serialized equipment items
--- Only assets whose equipment type requires a serial number are inserted here.
+-- Only assets whose equipment type requires a serial number are inserted here
 -- =========================================================
 
 INSERT INTO EquipmentItem (asset_id, serial_number)
@@ -291,13 +226,13 @@ WHERE et.requires_serial_number = TRUE;
 
 -- =========================================================
 -- Insert stock-managed equipment
--- Only assets whose equipment type does not require a serial number are inserted here.
+-- Only assets whose equipment type does not require a serial number are inserted here
 -- =========================================================
 
 INSERT INTO EquipmentStock (asset_id, quantity)
 SELECT
     ea.asset_id,
-    (floor(random() * 200) + 1)::INT AS quantity
+    (floor(random() * 180) + 20)::INT AS quantity
 FROM EquipmentAsset ea
 JOIN EquipmentType et
     ON ea.type_id = et.type_id
@@ -306,41 +241,79 @@ WHERE et.requires_serial_number = FALSE;
 
 -- =========================================================
 -- Insert equipment assignments
--- Serialized equipment is always assigned with quantity 1.
--- Stock equipment can be assigned with a quantity between 1 and 10.
+-- One assignment per asset
+-- Assignment date is always after the intake date
+-- Returned assignments never have a future return date
+-- Serialized equipment is always assigned with quantity 1
+-- Stock equipment is assigned with a quantity that does not exceed stock quantity
 -- =========================================================
 
 WITH assignment_source AS (
     SELECT
-        (floor(random() * 20000) + 1)::INT AS asset_id,
-        (floor(random() * 500) + 1)::INT AS recipient_id,
-        CURRENT_DATE - ((random() * 365)::INT) AS assignment_date,
-        random() AS status_roll
-    FROM generate_series(1, 20000)
+        ea.asset_id,
+        ea.intake_date,
+        ea.condition_status,
+        (floor(random() * 80) + 1)::INT AS recipient_id,
+        random() AS status_roll,
+        (
+            ea.intake_date
+            + ((random() * GREATEST((CURRENT_DATE - ea.intake_date), 0))::INT)
+        )::DATE AS assignment_date
+    FROM EquipmentAsset ea
+),
+assignment_final AS (
+    SELECT
+        asset_id,
+        intake_date,
+        condition_status,
+        recipient_id,
+        assignment_date,
+        CASE
+            WHEN condition_status = $$תקין$$ AND status_roll < 0.35 THEN $$פעילה$$
+            WHEN status_roll < 0.75 THEN $$הוחזרה$$
+            ELSE $$בוטלה$$
+        END AS assignment_status
+    FROM assignment_source
 )
 INSERT INTO EquipmentAssignment
 (asset_id, recipient_id, assignment_date, return_date, assigned_quantity, assignment_status)
 SELECT
-    s.asset_id,
-    s.recipient_id,
-    s.assignment_date,
+    af.asset_id,
+    af.recipient_id,
+    af.assignment_date,
     CASE
-        WHEN s.status_roll < 0.45 THEN NULL
-        WHEN s.status_roll < 0.90 THEN s.assignment_date + ((random() * 90)::INT)
+        WHEN af.assignment_status = $$הוחזרה$$ THEN
+            LEAST(CURRENT_DATE, af.assignment_date + ((random() * 60)::INT))
         ELSE NULL
     END AS return_date,
     CASE
         WHEN ei.asset_id IS NOT NULL THEN 1
-        ELSE (floor(random() * 10) + 1)::INT
+        ELSE (floor(random() * LEAST(es.quantity, 10)) + 1)::INT
     END AS assigned_quantity,
-    CASE
-        WHEN s.status_roll < 0.45 THEN $$פעילה$$
-        WHEN s.status_roll < 0.90 THEN $$הוחזרה$$
-        ELSE $$בוטלה$$
-    END AS assignment_status
-FROM assignment_source s
+    af.assignment_status
+FROM assignment_final af
 LEFT JOIN EquipmentItem ei
-    ON s.asset_id = ei.asset_id;
+    ON af.asset_id = ei.asset_id
+LEFT JOIN EquipmentStock es
+    ON af.asset_id = es.asset_id;
+
+
+-- =========================================================
+-- Update availability status according to active assignments and condition
+-- =========================================================
+
+UPDATE EquipmentAsset ea
+SET availability_status =
+    CASE
+        WHEN EXISTS (
+            SELECT 1
+            FROM EquipmentAssignment a
+            WHERE a.asset_id = ea.asset_id
+              AND a.assignment_status = $$פעילה$$
+        ) THEN $$מוקצה$$
+        WHEN ea.condition_status = $$תקין$$ THEN $$זמין$$
+        ELSE $$לא זמין$$
+    END;
 
 
 COMMIT;
@@ -371,7 +344,7 @@ SELECT $$EquipmentAssignment$$, COUNT(*) FROM EquipmentAssignment;
 
 -- =========================================================
 -- Consistency checks
--- All three results should be 0.
+-- All problem counts should be 0
 -- =========================================================
 
 SELECT COUNT(*) AS wrong_items
@@ -396,11 +369,84 @@ JOIN EquipmentItem ei
     ON a.asset_id = ei.asset_id
 WHERE a.assigned_quantity <> 1;
 
+SELECT COUNT(*) AS assignments_before_intake
+FROM EquipmentAssignment a
+JOIN EquipmentAsset ea
+    ON a.asset_id = ea.asset_id
+WHERE a.assignment_date < ea.intake_date;
+
+SELECT COUNT(*) AS returned_without_return_date
+FROM EquipmentAssignment
+WHERE assignment_status = $$הוחזרה$$
+  AND return_date IS NULL;
+
+SELECT COUNT(*) AS active_with_return_date
+FROM EquipmentAssignment
+WHERE assignment_status = $$פעילה$$
+  AND return_date IS NOT NULL;
+
+SELECT COUNT(*) AS future_returned_assignments
+FROM EquipmentAssignment
+WHERE assignment_status = $$הוחזרה$$
+  AND return_date > CURRENT_DATE;
+
+SELECT COUNT(*) AS active_assets_not_marked_allocated
+FROM EquipmentAsset ea
+WHERE EXISTS (
+    SELECT 1
+    FROM EquipmentAssignment a
+    WHERE a.asset_id = ea.asset_id
+      AND a.assignment_status = $$פעילה$$
+)
+AND ea.availability_status <> $$מוקצה$$;
+
+SELECT COUNT(*) AS allocated_assets_without_active_assignment
+FROM EquipmentAsset ea
+WHERE ea.availability_status = $$מוקצה$$
+AND NOT EXISTS (
+    SELECT 1
+    FROM EquipmentAssignment a
+    WHERE a.asset_id = ea.asset_id
+      AND a.assignment_status = $$פעילה$$
+);
+
+SELECT COUNT(*) AS unavailable_condition_marked_available
+FROM EquipmentAsset
+WHERE condition_status <> $$תקין$$
+  AND availability_status = $$זמין$$;
+
+SELECT COUNT(*) AS duplicated_active_serial_items
+FROM (
+    SELECT a.asset_id
+    FROM EquipmentAssignment a
+    JOIN EquipmentItem ei
+        ON a.asset_id = ei.asset_id
+    WHERE a.assignment_status = $$פעילה$$
+    GROUP BY a.asset_id
+    HAVING COUNT(*) > 1
+) duplicated_items;
+
+SELECT COUNT(*) AS stock_over_allocated
+FROM (
+    SELECT
+        es.asset_id,
+        es.quantity,
+        COALESCE(SUM(a.assigned_quantity), 0) AS active_assigned_quantity
+    FROM EquipmentStock es
+    LEFT JOIN EquipmentAssignment a
+        ON es.asset_id = a.asset_id
+       AND a.assignment_status = $$פעילה$$
+    GROUP BY
+        es.asset_id,
+        es.quantity
+    HAVING COALESCE(SUM(a.assigned_quantity), 0) > es.quantity
+) stock_check;
+
 
 -- =========================================================
 -- M:N check
--- This query shows how many equipment types are linked to more than one category.
--- The result should be 500.
+-- The result should be 60 because every equipment type is linked
+-- to two categories
 -- =========================================================
 
 SELECT COUNT(*) AS equipment_types_with_multiple_categories
