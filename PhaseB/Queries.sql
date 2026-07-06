@@ -146,9 +146,7 @@ SELECT
     sl.location_name,
     sl.location_type,
     et.type_name,
-    COUNT(es.asset_id) AS stock_record_count,
-    SUM(es.quantity) AS total_quantity,
-    ROUND(AVG(es.quantity), 2) AS average_quantity
+    SUM(es.quantity) AS total_quantity
 FROM EquipmentStock es
 JOIN EquipmentAsset ea
     ON es.asset_id = ea.asset_id
