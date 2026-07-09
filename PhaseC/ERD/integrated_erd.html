@@ -1,0 +1,1593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Chen ERD Editor</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:sans-serif;background:#1a1a2e;color:#eee;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#toolbar{display:flex;align-items:center;gap:5px;padding:5px 8px;background:#16213e;border-bottom:1px solid #0f3460;flex-wrap:wrap}
+#toolbar button{padding:4px 9px;border:1px solid #0f3460;background:#0f3460;color:#eee;border-radius:4px;cursor:pointer;font-size:11px;transition:background .15s;white-space:nowrap}
+#toolbar button:hover,#toolbar button.active{background:#e94560;border-color:#e94560}
+.sep{width:1px;height:24px;background:#0f3460;flex-shrink:0}
+#canvas-wrap{flex:1;position:relative;overflow:hidden}
+svg#canvas{width:100%;height:100%;background:#1a1a2e}
+.grid-dot{fill:#2a2a4a}
+/* Nodes */
+.ent-rect{fill:#1a1a2e;stroke:#4fc3f7;stroke-width:2}
+.ent-inner{fill:none;stroke:#4fc3f7;stroke-width:1.2}
+.attr-ell{fill:#1a1a2e;stroke:#81c784;stroke-width:1.5}
+.rel-poly{fill:#2a2a3e;stroke:#ffb74d;stroke-width:1.5}
+.rel-inner{fill:#2a2a3e;stroke:#ffb74d;stroke-width:1.5}
+.isa-tri{fill:#2a2a3e;stroke:#ce93d8;stroke-width:1.5}
+.nd-text{font-family:sans-serif;fill:#eee;pointer-events:none;user-select:none}
+.key-ul{stroke:#eee;stroke-width:1;pointer-events:none}
+.sel-ol{stroke:#e94560!important;stroke-width:2.5!important}
+/* Edges */
+.edge-line{stroke:#888;stroke-width:1.5;fill:none}
+.edge-sel{stroke:#e94560;stroke-width:2;fill:none}
+/* Panels */
+#edge-panel,#node-panel{position:absolute;top:8px;right:8px;background:#16213e;border:1px solid #0f3460;border-radius:6px;padding:12px;width:250px;display:none;z-index:50;font-size:12px}
+#edge-panel h4,#node-panel h4{margin-bottom:10px;font-size:13px;color:#4fc3f7}
+.prow{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.prow label{color:#aaa;width:75px;flex-shrink:0;font-size:11px}
+.prow select,.prow input{flex:1;padding:4px 6px;background:#0a0a1a;border:1px solid #0f3460;color:#eee;border-radius:4px;font-size:11px}
+.pbtn{width:100%;padding:6px;border:none;color:#fff;border-radius:4px;cursor:pointer;font-size:12px;margin-top:3px}
+.pbtn-red{background:#e94560} .pbtn-gray{background:#555}
+#node-panel input{width:100%;padding:5px 8px;background:#0a0a1a;border:1px solid #0f3460;color:#eee;border-radius:4px;font-size:12px;margin-bottom:8px}
+/* Context menu */
+#ctx-menu{position:fixed;background:#16213e;border:1px solid #0f3460;border-radius:4px;padding:4px 0;display:none;z-index:200;min-width:185px}
+#ctx-menu div{padding:6px 15px;font-size:12px;cursor:pointer}
+#ctx-menu div:hover{background:#0f3460}
+.ctx-sep{height:1px!important;background:#0f3460;margin:2px 0;padding:0!important;cursor:default!important}
+#ctx-menu .ctx-sep:hover{background:#0f3460}
+#status{position:absolute;bottom:6px;left:10px;font-size:10px;color:#555}
+/* ── Light theme (applies to the live view when ☀ White BG is chosen) ── */
+body.light{background:#f5f6f8;color:#111}
+body.light svg#canvas{background:#ffffff}
+body.light .grid-dot{fill:#e0e0e0}
+body.light .ent-rect{fill:#fff;stroke:#0277bd}
+body.light .ent-inner{stroke:#0277bd}
+body.light .attr-ell{fill:#fff;stroke:#2e7d32}
+body.light .rel-poly{fill:#fffde7;stroke:#ef6c00}
+body.light .rel-inner{fill:#fffde7;stroke:#ef6c00}
+body.light .isa-tri{fill:#f3e5f5;stroke:#8e24aa}
+body.light .nd-text{fill:#111}
+body.light .key-ul{stroke:#111}
+body.light .edge-line{stroke:#555}
+body.light .deco-f{fill:#555}
+body.light .deco-s{stroke:#555}
+body.light #toolbar{background:#eceff4;border-color:#ccc}
+body.light #toolbar button{background:#fff;border-color:#bbb;color:#222}
+body.light #toolbar button:hover,body.light #toolbar button.active{background:#e94560;border-color:#e94560;color:#fff}
+body.light .sep{background:#ccc}
+body.light #export-bg{background:#fff!important;color:#222!important;border-color:#bbb!important}
+body.light #edge-panel,body.light #node-panel,body.light #ctx-menu{background:#fff;border-color:#ccc;color:#222}
+body.light #edge-panel h4,body.light #node-panel h4{color:#0277bd}
+body.light .prow label{color:#666}
+body.light .prow select,body.light .prow input,body.light #node-panel input{background:#f2f3f5!important;color:#222!important;border-color:#ccc!important}
+body.light .qp{background:#dfe3ea!important;color:#222!important}
+body.light #ctx-menu div:hover{background:#eee}
+body.light #status{color:#999}
+</style>
+</head>
+<body>
+<div id="toolbar">
+  <button id="btn-undo" title="Undo Ctrl+Z">↩ Undo</button>
+  <button id="btn-redo" title="Redo Ctrl+Y">↪ Redo</button>
+  <div class="sep"></div>
+  <button id="btn-select" class="active">⬆ Select</button>
+  <button id="btn-entity" title="(E)">▭ Entity</button>
+  <button id="btn-weak-entity" title="(W)">▭̈ Weak</button>
+  <button id="btn-attr" title="(A)">◯ Attr</button>
+  <button id="btn-rel" title="(R)">◇ Rel</button>
+  <button id="btn-weak-rel" title="(D)">◈ Id.Rel</button>
+  <button id="btn-isa" title="(I)">△ ISA</button>
+  <div class="sep"></div>
+  <button id="btn-edge" title="(L)">↔ Connect</button>
+  <div class="sep"></div>
+  <button id="btn-group" title="Group selection (Ctrl+G)">⧉ Group</button>
+  <button id="btn-ungroup" title="Ungroup (Ctrl+Shift+G)">⧉̸ Ungroup</button>
+  <div class="sep"></div>
+  <button id="btn-delete">✕ Delete</button>
+  <button id="btn-clear">⊘ Clear</button>
+  <div class="sep"></div>
+  <button id="btn-zoom-in">+</button>
+  <button id="btn-zoom-out">−</button>
+  <button id="btn-zoom-reset">⊡</button>
+  <div class="sep"></div>
+  <button id="btn-frame" title="Draw the exact export area on the canvas">▣ Frame</button>
+  <select id="export-bg" style="padding:4px 6px;background:#0a0a1a;border:1px solid #0f3460;color:#eee;border-radius:4px;font-size:11px">
+    <option value="dark">🌙 Dark BG</option>
+    <option value="light">☀ White BG</option>
+  </select>
+  <select id="export-scale" title="Export resolution" style="padding:4px 6px;background:#0a0a1a;border:1px solid #0f3460;color:#eee;border-radius:4px;font-size:11px">
+    <option value="2">2× res</option>
+    <option value="3" selected>3× res</option>
+    <option value="4">4× res</option>
+    <option value="6">6× res</option>
+  </select>
+  <button id="btn-export">⬇ Save PNG</button>
+  <button id="btn-export-pdf" title="Opens a clean vector SVG print view. Choose 'Save as PDF' in the browser.">🖨 Print / Save Vector PDF</button>
+  <button id="btn-export-html" title="Save a new editor HTML file with the current model embedded as its default">⬇ Save HTML</button>
+</div>
+
+<div id="canvas-wrap">
+<svg id="canvas">
+  <defs>
+    <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+      <circle cx="15" cy="15" r="1" class="grid-dot"/>
+    </pattern>
+  </defs>
+  <rect width="10000" height="10000" x="-5000" y="-5000" fill="url(#grid)" pointer-events="none"/>
+  <g id="EL"></g><!-- edges -->
+  <g id="NL"></g><!-- nodes (+ selected edge on top) -->
+  <g id="GL"></g><!-- guides / marquee -->
+</svg>
+<div id="status">Space+Drag / Middle-drag = pan | Drag empty = multi-select box | Shift+Click = add | Ctrl+G group</div>
+</div>
+
+<!-- Edge panel -->
+<div id="edge-panel">
+  <h4>↔ Edge Style</h4>
+  <div class="prow"><label>From end</label>
+    <select id="ep-from">
+      <option value="none">── None (many)</option>
+      <option value="arrow">→ Arrow (≤1)</option>
+      <option value="round">⌒ Round (=1, mandatory)</option>
+    </select>
+  </div>
+  <div class="prow"><label>To end</label>
+    <select id="ep-to">
+      <option value="none">── None (many)</option>
+      <option value="arrow">→ Arrow (≤1)</option>
+      <option value="round">⌒ Round (=1, mandatory)</option>
+    </select>
+  </div>
+  <div style="margin:6px 0 4px;color:#aaa;font-size:11px">Quick presets:</div>
+  <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
+    <button class="qp" data-f="none" data-t="none" style="flex:1;padding:4px;font-size:10px;background:#0f3460;border:none;color:#eee;border-radius:3px;cursor:pointer">M:N</button>
+    <button class="qp" data-f="none" data-t="arrow" style="flex:1;padding:4px;font-size:10px;background:#0f3460;border:none;color:#eee;border-radius:3px;cursor:pointer">→ ≤1</button>
+    <button class="qp" data-f="none" data-t="round" style="flex:1;padding:4px;font-size:10px;background:#0f3460;border:none;color:#eee;border-radius:3px;cursor:pointer">⌒ =1</button>
+  </div>
+  <div style="margin-bottom:6px;padding:6px;background:#0a0a1a;border-radius:4px;font-size:10px;color:#888">
+    💡 Green square = line gap · Orange diamond = slide marker · Red circle = reconnect · Blue circle = stretch/bend end · Drag line body = move whole line
+  </div>
+  <button class="pbtn pbtn-red" id="ep-swap">⇄ Swap ends</button>
+  <button class="pbtn pbtn-gray" id="ep-reset-line">⟲ Reset line geometry</button>
+  <button class="pbtn pbtn-gray" id="ep-del">✕ Delete Edge</button>
+</div>
+
+<!-- Node panel -->
+<div id="node-panel">
+  <h4 id="np-title">Edit Node</h4>
+  <input id="np-label" type="text"/>
+  <button class="pbtn pbtn-red" id="np-apply">✓ Apply</button>
+</div>
+
+<!-- Context menu -->
+<div id="ctx-menu">
+  <div id="ctx-rename">✏ Rename</div>
+  <div id="ctx-key">🔑 Toggle key underline</div>
+  <div id="ctx-weak">⬜ Toggle weak/double</div>
+  <div class="ctx-sep"></div>
+  <div id="ctx-group">⧉ Group selection</div>
+  <div id="ctx-ungroup">⧉̸ Ungroup</div>
+  <div class="ctx-sep"></div>
+  <div id="ctx-del">✕ Delete</div>
+</div>
+
+<script>
+/*__ERD_STATE__*/window.__INITIAL_ERD_STATE__=null;/*__ERD_STATE_END__*/
+// ── State ─────────────────────────────────────
+let nodes=[], edges=[], idSeq=1;
+let selSet=new Set();        // multi-selection of node ids
+let selN=null;               // primary selected node (last clicked)
+let selE=null;               // selected edge id
+let mode='select', edgeStart=null;
+let viewX=0,viewY=0,viewScale=1;
+let dragging=null,dragOX=0,dragOY=0,dragStart=null,grabStart=null;
+let panning=false,panSX=0,panSY=0,panOX=0,panOY=0;
+let marquee=null;            // {x0,y0,rect} rubber-band selection
+let undoStack=[], redoStack=[];
+let edgeHandleDrag=null;     // {edgeId, side} reconnect drag
+let dragPreview=null;
+let decoDrag=null;           // {edgeId, side, kind:'deco'|'gap'}
+let resizeDrag=null;         // {nodeId, side:'l'|'r'|'t'|'b', left,right,top,bottom}
+let lineDrag=null;           // {edgeId, part:'from'|'to'|'body', start:{...}}
+let preDragSnap=null;
+let dragMoved=false;
+
+const svg=document.getElementById('canvas');
+const NL=document.getElementById('NL');
+const EL=document.getElementById('EL');
+const GL=document.getElementById('GL');
+
+// ── Undo/Redo ─────────────────────────────────
+const snap=()=>JSON.stringify({nodes:nodes.map(n=>({...n})),edges:edges.map(e=>({...e})),idSeq});
+function pushUndo(){undoStack.push(snap());if(undoStack.length>100)undoStack.shift();redoStack=[];}
+function restore(s){
+  const d=JSON.parse(s);nodes=d.nodes;edges=d.edges;idSeq=d.idSeq;
+  selN=null;selE=null;selSet=new Set();
+  edgeHandleDrag=null;dragging=null;preDragSnap=null;dragMoved=false;decoDrag=null;marquee=null;
+  resizeDrag=null;lineDrag=null;
+  if(dragPreview){dragPreview.remove();dragPreview=null;}
+  edgeStart=null;dimNodes(null);clearGuides();
+  closeP();
+  renderAll();
+}
+function undo(){
+  if(dragging||edgeHandleDrag||decoDrag||marquee||resizeDrag||lineDrag)return;
+  if(!undoStack.length)return;
+  redoStack.push(snap());restore(undoStack.pop());
+}
+function redo(){
+  if(dragging||edgeHandleDrag||decoDrag||marquee||resizeDrag||lineDrag)return;
+  if(!redoStack.length)return;
+  undoStack.push(snap());restore(redoStack.pop());
+}
+
+// ── Helpers ───────────────────────────────────
+const uid=()=>`n${idSeq++}`;
+const eid=()=>`e${idSeq++}`;
+function svgPt(cx,cy){const r=svg.getBoundingClientRect();return{x:(cx-r.left-viewX)/viewScale,y:(cy-r.top-viewY)/viewScale};}
+function applyT(){
+  const t=`translate(${viewX},${viewY}) scale(${viewScale})`;
+  NL.setAttribute('transform',t);EL.setAttribute('transform',t);GL.setAttribute('transform',t);
+  svg.querySelector('rect').setAttribute('transform',t);
+}
+function setMode(m){
+  mode=m;edgeStart=null;
+  document.querySelectorAll('#toolbar button[id^=btn-]').forEach(b=>b.classList.remove('active'));
+  const map={select:'btn-select',entity:'btn-entity','weak-entity':'btn-weak-entity',attr:'btn-attr',rel:'btn-rel','weak-rel':'btn-weak-rel',isa:'btn-isa',edge:'btn-edge',frame:'btn-frame'};
+  if(map[m])document.getElementById(map[m]).classList.add('active');
+  // in frame mode, clicks pass straight through nodes to the canvas
+  NL.style.pointerEvents=(m==='frame')?'none':'auto';
+  EL.style.pointerEvents=(m==='frame')?'none':'auto';
+  svg.style.cursor=(m==='select')?'default':'crosshair';
+  if(m!=='edge')dimNodes(null);
+}
+function nsz(type,label){
+  const l=(label||'').length;
+  if(type==='entity'||type==='weak-entity')return{w:Math.max(140,l*9+24),h:40};
+  if(type==='attr')return{w:Math.max(90,l*8+18),h:30};
+  if(type==='rel'||type==='weak-rel')return{w:Math.max(100,l*8+24),h:40};
+  if(type==='isa')return{w:90,h:68};
+  return{w:120,h:40};
+}
+function mkEl(tag,attrs){
+  const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  for(const[k,v] of Object.entries(attrs))el.setAttribute(k,v);
+  return el;
+}
+function mkTxt(x,y,txt,sz,wt,it){
+  const t=mkEl('text',{x,y,'text-anchor':'middle',class:'nd-text','font-size':sz||'13'});
+  if(wt)t.setAttribute('font-weight',wt);
+  if(it)t.setAttribute('font-style',it);
+  t.textContent=txt;return t;
+}
+
+// ── Alignment guides + snapping ───────────────
+const SNAP_T=8;
+function clearGuides(){GL.querySelectorAll('.guide').forEach(el=>el.remove());}
+function showGuides(gx,gy){
+  clearGuides();
+  const mk=(x1,y1,x2,y2)=>{
+    const l=mkEl('line',{x1,y1,x2,y2,stroke:'#e94560','stroke-width':1.2,'stroke-dasharray':'7 5',class:'guide'});
+    l.setAttribute('pointer-events','none');
+    GL.appendChild(l);
+  };
+  if(gx!==null)mk(gx,-5000,gx,5000);
+  if(gy!==null)mk(-5000,gy,5000,gy);
+}
+
+// ── Export frame (user-drawn capture region) ──
+let exportRegion=null;   // {x,y,w,h} in model coords — the exact PNG area
+let frameDraw=null;      // {x0,y0} while drawing
+function renderRegion(){
+  GL.querySelectorAll('.region').forEach(el=>el.remove());
+  if(!exportRegion)return;
+  const r=exportRegion;
+  const rect=mkEl('rect',{x:r.x,y:r.y,width:r.w,height:r.h,class:'region',
+    fill:'rgba(255,183,77,0.05)',stroke:'#ffb74d','stroke-width':1.5,'stroke-dasharray':'10 6'});
+  rect.setAttribute('pointer-events','none');
+  GL.appendChild(rect);
+  const lbl=mkEl('text',{x:r.x+8,y:r.y+18,class:'region',fill:'#ffb74d','font-size':'13','font-family':'sans-serif'});
+  lbl.textContent='▣ Export area ('+Math.round(r.w)+'×'+Math.round(r.h)+')';
+  lbl.setAttribute('pointer-events','none');
+  GL.appendChild(lbl);
+}
+// Snap a point to other nodes' axes; excl = Set of node ids to ignore
+function snapPos(excl,x,y){
+  let bx=SNAP_T,by=SNAP_T,gx=null,gy=null,sx=x,sy=y;
+  nodes.forEach(o=>{
+    if(excl.has(o.id))return;
+    const dx=Math.abs(x-o.x),dy=Math.abs(y-o.y);
+    if(dx<bx){bx=dx;sx=o.x;gx=o.x;}
+    if(dy<by){by=dy;sy=o.y;gy=o.y;}
+  });
+  return {x:sx,y:sy,gx,gy};
+}
+
+// ── Selection helpers ─────────────────────────
+function setSelection(ids){
+  selSet=new Set(ids);selN=ids.length?ids[ids.length-1]:null;selE=null;
+}
+function groupMembers(n){
+  return n.group?nodes.filter(x=>x.group===n.group).map(x=>x.id):[n.id];
+}
+function clearSelection(){selSet=new Set();selN=null;}
+
+// ── Render Node ───────────────────────────────
+function renderNode(n){
+  document.getElementById(`nd-${n.id}`)?.remove();
+  const g=mkEl('g',{id:`nd-${n.id}`,'data-id':n.id});
+  g.style.cursor='move';
+  const sel=selSet.has(n.id);
+  const sc=(c)=>sel?'sel-ol':c;
+
+  if(n.type==='entity'||n.type==='weak-entity'){
+    g.appendChild(mkEl('rect',{x:n.x-n.w/2,y:n.y-n.h/2,width:n.w,height:n.h,class:sc('ent-rect')}));
+    if(n.type==='weak-entity')
+      g.appendChild(mkEl('rect',{x:n.x-n.w/2+4,y:n.y-n.h/2+4,width:n.w-8,height:n.h-8,class:'ent-inner'}));
+    g.appendChild(mkTxt(n.x,n.y+5,n.label||'Entity','13','700'));
+  } else if(n.type==='attr'){
+    g.appendChild(mkEl('ellipse',{cx:n.x,cy:n.y,rx:n.w/2,ry:n.h/2,class:sc('attr-ell')}));
+    g.appendChild(mkTxt(n.x,n.y+4,n.label||'attr','11'));
+    if(n.keyAttr){
+      const tw=(n.label||'').length*6.1;
+      g.appendChild(mkEl('line',{x1:n.x-tw/2,x2:n.x+tw/2,y1:n.y+8,y2:n.y+8,class:'key-ul'}));
+    }
+  } else if(n.type==='rel'||n.type==='weak-rel'){
+    const hw=n.w/2,hh=n.h/2;
+    const pts=`${n.x},${n.y-hh} ${n.x+hw},${n.y} ${n.x},${n.y+hh} ${n.x-hw},${n.y}`;
+    g.appendChild(mkEl('polygon',{points:pts,class:sc('rel-poly')}));
+    if(n.type==='weak-rel'){
+      const hw2=hw-5,hh2=hh-5;
+      g.appendChild(mkEl('polygon',{points:`${n.x},${n.y-hh2} ${n.x+hw2},${n.y} ${n.x},${n.y+hh2} ${n.x-hw2},${n.y}`,class:'rel-inner'}));
+    }
+    g.appendChild(mkTxt(n.x,n.y+5,n.label||'rel','12',null,'italic'));
+  } else if(n.type==='isa'){
+    const pts=`${n.x},${n.y-n.h/2} ${n.x+n.w/2},${n.y+n.h/2} ${n.x-n.w/2},${n.y+n.h/2}`;
+    g.appendChild(mkEl('polygon',{points:pts,class:sc('isa-tri')}));
+    g.appendChild(mkTxt(n.x,n.y+14,'ISA','13','700'));
+  }
+
+  // group badge (small link icon top-right when node belongs to a group)
+  if(n.group){
+    g.appendChild(mkTxt(n.x+n.w/2-4,n.y-n.h/2+2,'⧉','10'));
+  }
+
+  // shape-accurate transparent hit area
+  const P=5;
+  let hit;
+  if(n.type==='attr'){
+    hit=mkEl('ellipse',{cx:n.x,cy:n.y,rx:n.w/2+P,ry:n.h/2+P,fill:'transparent',stroke:'none'});
+  }else if(n.type==='rel'||n.type==='weak-rel'){
+    const hw=n.w/2+P,hh=n.h/2+P;
+    hit=mkEl('polygon',{points:`${n.x},${n.y-hh} ${n.x+hw},${n.y} ${n.x},${n.y+hh} ${n.x-hw},${n.y}`,fill:'transparent',stroke:'none'});
+  }else if(n.type==='isa'){
+    const hw=n.w/2+P,hh=n.h/2+P;
+    hit=mkEl('polygon',{points:`${n.x},${n.y-hh} ${n.x+hw},${n.y+hh} ${n.x-hw},${n.y+hh}`,fill:'transparent',stroke:'none'});
+  }else{
+    hit=mkEl('rect',{x:n.x-n.w/2-P,y:n.y-n.h/2-P,width:n.w+2*P,height:n.h+2*P,fill:'transparent',stroke:'none'});
+  }
+  g.appendChild(hit);
+
+  // directional resize handles — shown when this node is the only selection
+  if(sel&&selSet.size===1&&mode==='select'){
+    const HS=4.5;
+    [['r',n.x+n.w/2,n.y,'ew-resize'],['l',n.x-n.w/2,n.y,'ew-resize'],
+     ['t',n.x,n.y-n.h/2,'ns-resize'],['b',n.x,n.y+n.h/2,'ns-resize']].forEach(([side,hx,hy,cur])=>{
+      const h=mkEl('rect',{x:hx-HS,y:hy-HS,width:HS*2,height:HS*2,rx:1.5,
+        fill:'#4fc3f7',stroke:'#fff','stroke-width':'1.2'});
+      h.style.cursor=cur;
+      const t=document.createElementNS('http://www.w3.org/2000/svg','title');
+      t.textContent='Drag to grow / shrink this side';
+      h.appendChild(t);
+      h.addEventListener('mousedown',ev=>{
+        ev.stopPropagation();
+        if(ev.button!==0)return;
+        preDragSnap=snap();dragMoved=false;
+        resizeDrag={nodeId:n.id,side,
+          left:n.x-n.w/2,right:n.x+n.w/2,top:n.y-n.h/2,bottom:n.y+n.h/2};
+        svg.style.cursor='grabbing';
+      });
+      g.appendChild(h);
+    });
+  }
+
+  g.addEventListener('mousedown',onNMD);
+  g.addEventListener('dblclick',ev=>{ev.stopPropagation();openNodePanel(ev.currentTarget.getAttribute('data-id'));});
+  g.addEventListener('contextmenu',ev=>{
+    ev.preventDefault();ev.stopPropagation();
+    const id=ev.currentTarget.getAttribute('data-id');
+    if(!selSet.has(id)){const n=nodes.find(x=>x.id===id);setSelection(groupMembers(n));renderAll();}
+    selN=id;
+    showCtx(ev.clientX,ev.clientY,id);
+  });
+  NL.appendChild(g);
+}
+
+// ── Edge geometry ─────────────────────────────
+function nCenter(id){const n=nodes.find(x=>x.id===id);return n?{x:n.x,y:n.y}:{x:0,y:0};}
+function edgeGeom(e){
+  const a=nCenter(e.from),b=nCenter(e.to);
+  const dx=b.x-a.x,dy=b.y-a.y,len=Math.sqrt(dx*dx+dy*dy)||1;
+  const ux=dx/len,uy=dy/len;
+  // Shape-aware intersection: distance from center to the actual outline
+  function inter(n,lux,luy){
+    const hw=n.w/2,hh=n.h/2;
+    if(n.type==='attr'){
+      return 1/Math.sqrt((lux/hw)**2+(luy/hh)**2);          // ellipse
+    }
+    if(n.type==='rel'||n.type==='weak-rel'){
+      return 1/(Math.abs(lux)/hw+Math.abs(luy)/hh);          // rhombus
+    }
+    const tx=lux!==0?Math.abs(hw/lux):Infinity;              // box
+    const ty=luy!==0?Math.abs(hh/luy):Infinity;
+    return Math.min(tx,ty);
+  }
+  const fN=nodes.find(x=>x.id===e.from),tN=nodes.find(x=>x.id===e.to);
+  const sf=fN?inter(fN,ux,uy)+1:0,st=tN?inter(tN,-ux,-uy)+1:0;
+  const bx1=a.x+ux*sf,by1=a.y+uy*sf,bx2=b.x-ux*st,by2=b.y-uy*st;
+  const rawSeg=Math.sqrt((bx2-bx1)**2+(by2-by1)**2);
+  const fGap=e.fromGap||0,tGap=e.toGap||0;
+  // base endpoints: boundary anchor + axial gap
+  const gx1=bx1+ux*fGap,gy1=by1+uy*fGap;
+  const gx2=bx2-ux*tGap,gy2=by2-uy*tGap;
+  // free per-end offsets — let the line be stretched, shortened or moved
+  // independently of the elements it connects
+  const x1=gx1+(e.fOx||0),y1=gy1+(e.fOy||0);
+  const x2=gx2+(e.tOx||0),y2=gy2+(e.tOy||0);
+  // final axis (used for decorations & handles) follows the ACTUAL line
+  const fdxA=x2-x1,fdyA=y2-y1,fLen=Math.sqrt(fdxA*fdxA+fdyA*fdyA)||1;
+  const fux=fdxA/fLen,fuy=fdyA/fLen;
+  const segLen=fLen;
+  return {x1,y1,x2,y2,ux:fux,uy:fuy,segLen,bx1,by1,bx2,by2,rawSeg,gx1,gy1,gx2,gy2,bux:ux,buy:uy};
+}
+
+// ── Render Edge ───────────────────────────────
+function renderEdge(e){
+  document.getElementById(`ed-${e.id}`)?.remove();
+  const isSel=selE===e.id;
+  const g=mkEl('g',{id:`ed-${e.id}`});
+  const G=edgeGeom(e);
+  const {x1,y1,x2,y2,ux,uy}=G;
+
+  g.appendChild(mkEl('line',{x1,y1,x2,y2,class:isSel?'edge-sel':'edge-line'}));
+
+  const fOff=e.fromOff||0, tOff=e.toOff||0;
+  const fdx=x1+ux*fOff, fdy=y1+uy*fOff;
+  const tdx=x2-ux*tOff, tdy=y2-uy*tOff;
+  drawDeco(g,e.fromEnd||'none',fdx,fdy,ux,uy,isSel);
+  drawDeco(g,e.toEnd||'none',tdx,tdy,-ux,-uy,isSel);
+
+  const hit=mkEl('line',{x1,y1,x2,y2,stroke:'transparent','stroke-width':'16'});
+  hit.style.cursor=isSel?'move':'pointer';
+  hit.addEventListener('click',ev=>{ev.stopPropagation();selectEdge(e.id);});
+  hit.addEventListener('mousedown',ev=>{
+    if(ev.button===0&&selE!==e.id){ev.stopPropagation();selectEdge(e.id);}
+  });
+  hit.addEventListener('contextmenu',ev=>{ev.preventDefault();pushUndo();delEdge(e.id);});
+  g.appendChild(hit);
+
+  if(isSel){
+    // gap handles (green squares, 26px inward of each line end)
+    [['from',x1,y1,1],['to',x2,y2,-1]].forEach(([side,hx,hy,dir])=>{
+      const px=hx+ux*26*dir, py=hy+uy*26*dir, S=5;
+      const h=mkEl('rect',{x:px-S,y:py-S,width:S*2,height:S*2,rx:1.5,
+        fill:'#81c784',stroke:'#fff','stroke-width':'1.2'});
+      h.style.cursor='grab';
+      const t=document.createElementNS('http://www.w3.org/2000/svg','title');
+      t.textContent='Drag to tighten/loosen the line against the element';
+      h.appendChild(t);
+      h.addEventListener('mousedown',ev=>{
+        ev.stopPropagation();
+        if(ev.button!==0)return;
+        preDragSnap=snap();dragMoved=false;
+        decoDrag={edgeId:e.id,side,kind:'gap'};
+        svg.style.cursor='grabbing';
+      });
+      g.appendChild(h);
+    });
+    // reconnect handles (red circles)
+    [['from',x1,y1],['to',x2,y2]].forEach(([side,hx,hy])=>{
+      const h=mkEl('circle',{cx:hx,cy:hy,r:7,fill:'#e94560',stroke:'#fff','stroke-width':'1.5'});
+      h.style.cursor='grab';
+      h.addEventListener('mousedown',ev=>{
+        ev.stopPropagation();
+        if(ev.button!==0)return;
+        edgeHandleDrag={edgeId:e.id,side};
+        svg.style.cursor='grabbing';
+      });
+      g.appendChild(h);
+    });
+    // free-stretch handles (blue circles just past each end):
+    // drag to lengthen / shorten / bend that end, detached from the element
+    [['from',x1-ux*16,y1-uy*16],['to',x2+ux*16,y2+uy*16]].forEach(([side,hx,hy])=>{
+      const h=mkEl('circle',{cx:hx,cy:hy,r:6,fill:'#4fc3f7',stroke:'#fff','stroke-width':'1.3'});
+      h.style.cursor='grab';
+      const t=document.createElementNS('http://www.w3.org/2000/svg','title');
+      t.textContent='Drag to stretch / shorten / bend this line end (Alt+drag the line body to move the whole line)';
+      h.appendChild(t);
+      h.addEventListener('mousedown',ev=>{
+        ev.stopPropagation();
+        if(ev.button!==0)return;
+        preDragSnap=snap();dragMoved=false;
+        lineDrag={edgeId:e.id,part:side};
+        svg.style.cursor='grabbing';
+      });
+      g.appendChild(h);
+    });
+    // decoration slide handles (orange diamonds)
+    [['from',e.fromEnd,fdx,fdy],['to',e.toEnd,tdx,tdy]].forEach(([side,st,hx,hy])=>{
+      if(!st||st==='none')return;
+      const S=6;
+      const h=mkEl('polygon',{
+        points:`${hx},${hy-S} ${hx+S},${hy} ${hx},${hy+S} ${hx-S},${hy}`,
+        fill:'#ffb74d',stroke:'#fff','stroke-width':'1.2'
+      });
+      h.style.cursor='grab';
+      const t=document.createElementNS('http://www.w3.org/2000/svg','title');
+      t.textContent='Drag to slide the marker along the edge';
+      h.appendChild(t);
+      h.addEventListener('mousedown',ev=>{
+        ev.stopPropagation();
+        if(ev.button!==0)return;
+        preDragSnap=snap();dragMoved=false;
+        decoDrag={edgeId:e.id,side,kind:'deco'};
+        svg.style.cursor='grabbing';
+      });
+      g.appendChild(h);
+    });
+  }
+  // Selected edge renders ABOVE the nodes layer so its handles always win
+  (isSel?NL:EL).appendChild(g);
+}
+
+function drawDeco(g,style,px,py,inUx,inUy,isSel){
+  const col=isSel?'#e94560':'#ccc';
+  // selected color set as inline style so it survives light-theme CSS overrides
+  const selStyle=(el,prop)=>{if(isSel)el.style[prop]=col;return el;};
+  if(style==='none')return;
+  if(style==='arrow'){
+    const S=17,HW=8,perp={x:-inUy,y:inUx};
+    const b1x=px+inUx*S+perp.x*HW, b1y=py+inUy*S+perp.y*HW;
+    const b2x=px+inUx*S-perp.x*HW, b2y=py+inUy*S-perp.y*HW;
+    g.appendChild(selStyle(mkEl('polygon',{
+      points:`${px},${py} ${b1x},${b1y} ${b2x},${b2y}`,
+      fill:col,stroke:'none',class:'deco-f'
+    }),'fill'));
+  } else if(style==='round'){
+    const R=12,perp={x:-inUy*R,y:inUx*R};
+    const cx=px+inUx*R,cy=py+inUy*R;
+    g.appendChild(selStyle(mkEl('path',{
+      d:`M ${cx+perp.x} ${cy+perp.y} A ${R} ${R} 0 0 1 ${cx-perp.x} ${cy-perp.y}`,
+      stroke:col,'stroke-width':'3',fill:'none',class:'deco-s'
+    }),'stroke'));
+    const fac=0.8;
+    g.appendChild(selStyle(mkEl('line',{
+      x1:px+perp.x*fac,y1:py+perp.y*fac,x2:px-perp.x*fac,y2:py-perp.y*fac,
+      stroke:col,'stroke-width':'3',class:'deco-s'
+    }),'stroke'));
+  }
+}
+
+function renderAll(){
+  NL.innerHTML='';EL.innerHTML='';
+  nodes.forEach(renderNode);
+  edges.forEach(renderEdge);   // selected edge lands in NL last → above nodes
+}
+function refreshEdges(id){edges.filter(e=>e.from===id||e.to===id).forEach(renderEdge);}
+
+// ── Add / Delete ──────────────────────────────
+function addNode(type,x,y,label,extra){
+  const lbl=label||(type==='isa'?'ISA':type[0].toUpperCase()+type.slice(1).replace('-entity','').replace('-rel',''));
+  const sz=nsz(type,lbl);
+  const n={id:uid(),type,x,y,w:sz.w,h:sz.h,label:lbl,...extra};
+  nodes.push(n);renderNode(n);return n;
+}
+function addEdge(fid,tid,fe,te){
+  const e={id:eid(),from:fid,to:tid,fromEnd:fe||'none',toEnd:te||'none'};
+  edges.push(e);renderEdge(e);return e;
+}
+function delNodes(ids){
+  const set=new Set(ids);
+  if(!set.size)return;
+  pushUndo();
+  edges=edges.filter(e=>!set.has(e.from)&&!set.has(e.to));
+  nodes=nodes.filter(n=>!set.has(n.id));
+  clearSelection();closeP();
+  renderAll();
+}
+function delEdge(id){
+  edges=edges.filter(e=>e.id!==id);
+  document.getElementById(`ed-${id}`)?.remove();
+  if(selE===id){selE=null;closeP();}
+}
+
+// ── Grouping ──────────────────────────────────
+function groupSel(){
+  if(selSet.size<2)return;
+  pushUndo();
+  const gid='g'+(idSeq++);
+  selSet.forEach(id=>{const n=nodes.find(x=>x.id===id);if(n)n.group=gid;});
+  renderAll();
+}
+function ungroupSel(){
+  let any=false;
+  selSet.forEach(id=>{const n=nodes.find(x=>x.id===id);if(n&&n.group)any=true;});
+  if(!any)return;
+  pushUndo();
+  selSet.forEach(id=>{const n=nodes.find(x=>x.id===id);if(n)delete n.group;});
+  renderAll();
+}
+
+// ── Selection / panels ────────────────────────
+function selectEdge(id){
+  selE=id;clearSelection();
+  renderAll();
+  openEdgePanel(id);
+}
+function dimNodes(id){
+  NL.querySelectorAll('g[data-id]').forEach(g=>{g.style.opacity=(!id||g.getAttribute('data-id')===id)?'1':'0.5';});
+}
+function closeP(){document.getElementById('edge-panel').style.display='none';document.getElementById('node-panel').style.display='none';}
+function openEdgePanel(id){
+  const e=edges.find(x=>x.id===id);if(!e)return;
+  document.getElementById('ep-from').value=e.fromEnd||'none';
+  document.getElementById('ep-to').value=e.toEnd||'none';
+  document.getElementById('edge-panel')._eid=id;
+  document.getElementById('edge-panel').style.display='block';
+  document.getElementById('node-panel').style.display='none';
+}
+function openNodePanel(id){
+  const n=nodes.find(x=>x.id===id);if(!n)return;
+  document.getElementById('np-title').textContent='Edit '+n.type;
+  document.getElementById('np-label').value=n.label||'';
+  document.getElementById('node-panel')._nid=id;
+  document.getElementById('node-panel').style.display='block';
+  document.getElementById('edge-panel').style.display='none';
+  setTimeout(()=>document.getElementById('np-label').focus(),40);
+}
+function showCtx(cx,cy,id){
+  const m=document.getElementById('ctx-menu');
+  m.style.display='block';m.style.left=cx+'px';m.style.top=cy+'px';m._id=id;
+}
+
+// ── Node mouse events ─────────────────────────
+function onNMD(ev){
+  // Space held → pan even when pressing over a node
+  if(spaceDown&&ev.button===0){
+    ev.stopPropagation();
+    panning=true;panSX=ev.clientX;panSY=ev.clientY;panOX=viewX;panOY=viewY;
+    svg.style.cursor='grabbing';
+    return;
+  }
+  ev.stopPropagation();if(ev.button!==0)return;
+  const id=ev.currentTarget.getAttribute('data-id');
+  const n=nodes.find(x=>x.id===id);
+  if(mode==='edge'){
+    if(!edgeStart){edgeStart=id;dimNodes(id);}
+    else if(edgeStart!==id){
+      pushUndo();
+      addEdge(edgeStart,id,'none','none');
+      edgeStart=null;dimNodes(null);
+      const e=edges[edges.length-1];selectEdge(e.id);
+    }
+    return;
+  }
+  if(mode!=='select')return;
+
+  closeP();
+  if(ev.shiftKey){
+    // toggle this node (and its group) in the selection
+    const mem=groupMembers(n);
+    if(selSet.has(id)) mem.forEach(m=>selSet.delete(m));
+    else mem.forEach(m=>selSet.add(m));
+    selN=selSet.size?id:null;selE=null;
+    renderAll();
+    return;              // shift-click adjusts selection; no drag
+  }
+  if(!selSet.has(id)){
+    setSelection(groupMembers(n));     // click = select node (or its whole group)
+    renderAll();
+  } else {
+    selN=id;                            // clicked inside existing selection → keep it
+  }
+  // begin (multi-)drag
+  const pt=svgPt(ev.clientX,ev.clientY);
+  dragging=id;dragOX=pt.x-n.x;dragOY=pt.y-n.y;
+  grabStart={x:n.x,y:n.y};
+  dragStart={};
+  selSet.forEach(sid=>{const m=nodes.find(x=>x.id===sid);if(m)dragStart[sid]={x:m.x,y:m.y};});
+  preDragSnap=snap();dragMoved=false;
+}
+
+// ═══ GLOBAL HANDLE PRIORITY (capture phase) ═══
+svg.addEventListener('mousedown',ev=>{
+  if(ev.button!==0||!selE||mode!=='select')return;
+  const e=edges.find(x=>x.id===selE);if(!e)return;
+  const G=edgeGeom(e);
+  const pt=svgPt(ev.clientX,ev.clientY);
+  const TH=14/Math.min(1,viewScale);
+  const cands=[];
+  const push=(x,y,kind,side)=>cands.push({d:Math.hypot(pt.x-x,pt.y-y),kind,side});
+  push(G.x1+G.ux*26,G.y1+G.uy*26,'gap','from');
+  push(G.x2-G.ux*26,G.y2-G.uy*26,'gap','to');
+  if(e.fromEnd&&e.fromEnd!=='none')push(G.x1+G.ux*(e.fromOff||0),G.y1+G.uy*(e.fromOff||0),'deco','from');
+  if(e.toEnd&&e.toEnd!=='none')push(G.x2-G.ux*(e.toOff||0),G.y2-G.uy*(e.toOff||0),'deco','to');
+  push(G.x1,G.y1,'end','from');
+  push(G.x2,G.y2,'end','to');
+  push(G.x1-G.ux*16,G.y1-G.uy*16,'stretch','from');
+  push(G.x2+G.ux*16,G.y2+G.uy*16,'stretch','to');
+  cands.sort((a,b)=>a.d-b.d);
+  const best=cands[0];
+  if(!best||best.d>TH){
+    // click on the line body itself → move the whole line, detached
+    // from the elements it connects. Clicks landing on a node keep
+    // their normal meaning (drag the node), even if the line runs under it.
+    if(ev.target.closest&&ev.target.closest('g[data-id]'))return;
+    const vx=G.x2-G.x1,vy=G.y2-G.y1,L2=vx*vx+vy*vy||1;
+    const tt=Math.max(0,Math.min(1,((pt.x-G.x1)*vx+(pt.y-G.y1)*vy)/L2));
+    const dBody=Math.hypot(pt.x-(G.x1+tt*vx),pt.y-(G.y1+tt*vy));
+    if(dBody<=10/Math.min(1,viewScale)){
+      ev.stopPropagation();ev.preventDefault();
+      preDragSnap=snap();dragMoved=false;
+      lineDrag={edgeId:e.id,part:'body',
+        start:{fOx:e.fOx||0,fOy:e.fOy||0,tOx:e.tOx||0,tOy:e.tOy||0,px:pt.x,py:pt.y}};
+      svg.style.cursor='grabbing';
+    }
+    return;
+  }
+  ev.stopPropagation();ev.preventDefault();
+  if(best.kind==='end'){
+    edgeHandleDrag={edgeId:e.id,side:best.side};
+  }else if(best.kind==='stretch'){
+    preDragSnap=snap();dragMoved=false;
+    lineDrag={edgeId:e.id,part:best.side};
+  }else{
+    preDragSnap=snap();dragMoved=false;
+    decoDrag={edgeId:e.id,side:best.side,kind:best.kind};
+  }
+  svg.style.cursor='grabbing';
+},true);
+
+// ── SVG events ────────────────────────────────
+svg.addEventListener('mousedown',ev=>{
+  document.getElementById('ctx-menu').style.display='none';
+  const onNode=!!ev.target.closest('g[data-id]');
+  // middle button OR Space+left = pan
+  if(ev.button===1||(ev.button===0&&spaceDown)){
+    panning=true;panSX=ev.clientX;panSY=ev.clientY;panOX=viewX;panOY=viewY;
+    svg.style.cursor='grabbing';ev.preventDefault();return;
+  }
+  if(ev.button!==0)return;
+  if(mode==='frame'){
+    // draw / redraw the export region; a simple click clears it
+    const pt=svgPt(ev.clientX,ev.clientY);
+    frameDraw={x0:pt.x,y0:pt.y};
+    exportRegion={x:pt.x,y:pt.y,w:0,h:0};
+    renderRegion();
+    return;
+  }
+  if(mode==='select'&&!onNode){
+    // left-drag on empty canvas = rubber-band multi-select (Canva style)
+    selE=null;clearSelection();closeP();renderAll();
+    const pt=svgPt(ev.clientX,ev.clientY);
+    const r=mkEl('rect',{x:pt.x,y:pt.y,width:0,height:0,
+      fill:'rgba(79,195,247,0.08)',stroke:'#4fc3f7','stroke-width':1,'stroke-dasharray':'5 4'});
+    r.setAttribute('pointer-events','none');
+    GL.appendChild(r);
+    marquee={x0:pt.x,y0:pt.y,rect:r};
+    return;
+  }
+  if(mode==='select'||mode==='edge')return;
+  const pt=svgPt(ev.clientX,ev.clientY);
+  const tmap={entity:1,'weak-entity':1,attr:1,rel:1,'weak-rel':1,isa:1};
+  if(tmap[mode]){pushUndo();addNode(mode,pt.x,pt.y);}
+});
+
+svg.addEventListener('mousemove',ev=>{
+  if(panning){viewX=panOX+(ev.clientX-panSX);viewY=panOY+(ev.clientY-panSY);applyT();return;}
+  if(frameDraw){
+    const pt=svgPt(ev.clientX,ev.clientY);
+    exportRegion={
+      x:Math.min(frameDraw.x0,pt.x), y:Math.min(frameDraw.y0,pt.y),
+      w:Math.abs(pt.x-frameDraw.x0), h:Math.abs(pt.y-frameDraw.y0)
+    };
+    renderRegion();
+    return;
+  }
+  if(marquee){
+    const pt=svgPt(ev.clientX,ev.clientY);
+    const x=Math.min(marquee.x0,pt.x),y=Math.min(marquee.y0,pt.y);
+    const w=Math.abs(pt.x-marquee.x0),h=Math.abs(pt.y-marquee.y0);
+    marquee.rect.setAttribute('x',x);marquee.rect.setAttribute('y',y);
+    marquee.rect.setAttribute('width',w);marquee.rect.setAttribute('height',h);
+    // live selection: nodes whose center falls inside the box (+ full groups)
+    const inside=new Set();
+    nodes.forEach(n=>{
+      if(n.x>=x&&n.x<=x+w&&n.y>=y&&n.y<=y+h) groupMembers(n).forEach(m=>inside.add(m));
+    });
+    const changed=inside.size!==selSet.size||[...inside].some(i=>!selSet.has(i));
+    if(changed){selSet=inside;selN=[...inside][0]||null;renderAll();}
+    return;
+  }
+  if(lineDrag){
+    const e=edges.find(x=>x.id===lineDrag.edgeId);
+    if(!e)return;
+    const pt=svgPt(ev.clientX,ev.clientY);
+    if(lineDrag.part==='body'){
+      const s=lineDrag.start;
+      const dx=pt.x-s.px,dy=pt.y-s.py;
+      e.fOx=s.fOx+dx;e.fOy=s.fOy+dy;
+      e.tOx=s.tOx+dx;e.tOy=s.tOy+dy;
+    }else{
+      const G=edgeGeom(e);
+      if(lineDrag.part==='from'){e.fOx=pt.x-G.gx1;e.fOy=pt.y-G.gy1;}
+      else{e.tOx=pt.x-G.gx2;e.tOy=pt.y-G.gy2;}
+    }
+    dragMoved=true;
+    renderEdge(e);
+    return;
+  }
+  if(resizeDrag){
+    const n=nodes.find(x=>x.id===resizeDrag.nodeId);
+    if(!n)return;
+    const pt=svgPt(ev.clientX,ev.clientY);
+    const m=nsz(n.type,n.label);            // text-fit minimum
+    const R=resizeDrag;
+    if(R.side==='r'){const w=Math.max(m.w,pt.x-R.left);n.w=w;n.x=R.left+w/2;}
+    if(R.side==='l'){const w=Math.max(m.w,R.right-pt.x);n.w=w;n.x=R.right-w/2;}
+    if(R.side==='b'){const h=Math.max(m.h,pt.y-R.top);n.h=h;n.y=R.top+h/2;}
+    if(R.side==='t'){const h=Math.max(m.h,R.bottom-pt.y);n.h=h;n.y=R.bottom-h/2;}
+    dragMoved=true;
+    renderNode(n);refreshEdges(n.id);
+    return;
+  }
+  if(decoDrag){
+    const e=edges.find(x=>x.id===decoDrag.edgeId);
+    if(!e)return;
+    const G=edgeGeom(e);
+    const pt=svgPt(ev.clientX,ev.clientY);
+    if(decoDrag.kind==='gap'){
+      const HOFF=26, MIN_G=-20;
+      if(decoDrag.side==='from'){
+        const proj=(pt.x-G.bx1)*G.bux+(pt.y-G.by1)*G.buy;
+        const maxG=Math.max(MIN_G,G.rawSeg-(e.toGap||0)-40);
+        e.fromGap=Math.min(maxG,Math.max(MIN_G,proj-HOFF));
+      }else{
+        const proj=(G.bx2-pt.x)*G.bux+(G.by2-pt.y)*G.buy;
+        const maxG=Math.max(MIN_G,G.rawSeg-(e.fromGap||0)-40);
+        e.toGap=Math.min(maxG,Math.max(MIN_G,proj-HOFF));
+      }
+    }else{
+      const maxOff=Math.max(0,G.segLen-24);
+      if(decoDrag.side==='from'){
+        const off=(pt.x-G.x1)*G.ux+(pt.y-G.y1)*G.uy;
+        e.fromOff=Math.min(maxOff,Math.max(0,off));
+      }else{
+        const off=(G.x2-pt.x)*G.ux+(G.y2-pt.y)*G.uy;
+        e.toOff=Math.min(maxOff,Math.max(0,off));
+      }
+    }
+    dragMoved=true;
+    renderEdge(e);
+    return;
+  }
+  if(edgeHandleDrag){
+    const e=edges.find(x=>x.id===edgeHandleDrag.edgeId);
+    if(!e)return;
+    const pt=svgPt(ev.clientX,ev.clientY);
+    const fixedId=edgeHandleDrag.side==='from'?e.to:e.from;
+    const fc=nCenter(fixedId);
+    if(!dragPreview){
+      dragPreview=mkEl('line',{stroke:'#e94560','stroke-width':'2','stroke-dasharray':'6 4'});
+      EL.appendChild(dragPreview);
+    }
+    dragPreview.setAttribute('x1',fc.x);dragPreview.setAttribute('y1',fc.y);
+    dragPreview.setAttribute('x2',pt.x);dragPreview.setAttribute('y2',pt.y);
+    const hover=nodeAt(pt.x,pt.y);
+    NL.querySelectorAll('g[data-id]').forEach(g=>{
+      g.style.opacity=(hover&&g.getAttribute('data-id')===hover.id)?'1':(hover?'0.55':'1');
+    });
+    return;
+  }
+  if(dragging){
+    const n=nodes.find(x=>x.id===dragging);
+    if(n&&dragStart&&grabStart){
+      const pt=svgPt(ev.clientX,ev.clientY);
+      const raw={x:pt.x-dragOX,y:pt.y-dragOY};
+      const s=snapPos(selSet,raw.x,raw.y);       // snap grabbed node, excluding co-moving
+      const ddx=s.x-grabStart.x, ddy=s.y-grabStart.y;
+      selSet.forEach(sid=>{
+        const m=nodes.find(x=>x.id===sid), st=dragStart[sid];
+        if(m&&st){m.x=st.x+ddx;m.y=st.y+ddy;renderNode(m);refreshEdges(sid);}
+      });
+      dragMoved=true;
+      showGuides(s.gx,s.gy);
+    }
+  }
+});
+
+svg.addEventListener('mouseup',ev=>{
+  if(frameDraw){
+    frameDraw=null;
+    // a tiny drag (or plain click) removes the frame → back to auto-fit export
+    if(exportRegion&&(exportRegion.w<20||exportRegion.h<20)){
+      exportRegion=null;renderRegion();
+    }
+    return;
+  }
+  if(marquee){
+    marquee.rect.remove();marquee=null;
+    return;
+  }
+  if(lineDrag||resizeDrag||decoDrag){
+    if(dragMoved&&preDragSnap){
+      undoStack.push(preDragSnap);
+      if(undoStack.length>100)undoStack.shift();
+      redoStack=[];
+    }
+    preDragSnap=null;dragMoved=false;decoDrag=null;lineDrag=null;resizeDrag=null;
+    svg.style.cursor=mode==='select'?'default':'crosshair';
+    return;
+  }
+  if(edgeHandleDrag){
+    const pt=svgPt(ev.clientX,ev.clientY);
+    const target=nodeAt(pt.x,pt.y);
+    const e=edges.find(x=>x.id===edgeHandleDrag.edgeId);
+    if(e&&target){
+      const otherId=edgeHandleDrag.side==='from'?e.to:e.from;
+      if(target.id!==otherId){
+        pushUndo();
+        if(edgeHandleDrag.side==='from')e.from=target.id;
+        else e.to=target.id;
+      }
+    }
+    edgeHandleDrag=null;
+    if(dragPreview){dragPreview.remove();dragPreview=null;}
+    NL.querySelectorAll('g[data-id]').forEach(g=>g.style.opacity='1');
+    edges.forEach(renderEdge);
+    svg.style.cursor=mode==='select'?'default':'crosshair';
+    return;
+  }
+  if(dragging){
+    if(dragMoved&&preDragSnap){
+      undoStack.push(preDragSnap);
+      if(undoStack.length>100)undoStack.shift();
+      redoStack=[];
+    }
+    preDragSnap=null;dragMoved=false;
+    clearGuides();
+  }
+  panning=false;dragging=null;dragStart=null;grabStart=null;
+  if(mode!=='edge')svg.style.cursor=mode==='select'?'default':'crosshair';
+});
+
+svg.addEventListener('wheel',ev=>{
+  ev.preventDefault();
+  const d=ev.deltaY>0?.9:1.1,r=svg.getBoundingClientRect();
+  const cx=ev.clientX-r.left,cy=ev.clientY-r.top;
+  viewX=cx-(cx-viewX)*d;viewY=cy-(cy-viewY)*d;viewScale*=d;applyT();
+},{passive:false});
+
+function nodeAt(x,y){
+  for(let i=nodes.length-1;i>=0;i--){
+    const n=nodes[i];
+    if(x>=n.x-n.w/2-5&&x<=n.x+n.w/2+5&&y>=n.y-n.h/2-5&&y<=n.y+n.h/2+5)return n;
+  }
+  return null;
+}
+
+// ── Keyboard ──────────────────────────────────
+let spaceDown=false;
+window.addEventListener('keydown',ev=>{
+  if(ev.code==='Space'&&ev.target.tagName!=='INPUT'){
+    if(!spaceDown){spaceDown=true;if(!panning)svg.style.cursor='grab';}
+    ev.preventDefault();          // stop page scroll
+    return;
+  }
+  if(ev.target.tagName==='INPUT'||ev.target.tagName==='SELECT'||ev.target.tagName==='TEXTAREA')return;
+  // arrow keys pan the model inside the viewport
+  // (Shift = big steps; the diagram follows the arrow direction)
+  const AR={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[ev.key];
+  if(AR){
+    ev.preventDefault();
+    const step=ev.shiftKey?200:40;
+    viewX+=AR[0]*step;viewY+=AR[1]*step;applyT();
+    return;
+  }
+  const k=ev.key.toLowerCase();
+  if((ev.ctrlKey||ev.metaKey)&&k==='g'){
+    ev.preventDefault();
+    ev.shiftKey?ungroupSel():groupSel();
+    return;
+  }
+  if((ev.ctrlKey||ev.metaKey)&&k==='z'&&!ev.shiftKey){undo();return;}
+  if((ev.ctrlKey||ev.metaKey)&&(k==='y'||(k==='z'&&ev.shiftKey))){redo();return;}
+  const km={v:'select',e:'entity',w:'weak-entity',a:'attr',r:'rel',d:'weak-rel',i:'isa',l:'edge'};
+  if(km[k])setMode(km[k]);
+  else if(k==='escape'){setMode('select');dimNodes(null);clearSelection();selE=null;closeP();renderAll();}
+  else if(k==='delete'||k==='backspace'){
+    if(selE){pushUndo();delEdge(selE);}
+    else if(selSet.size)delNodes([...selSet]);
+  }
+});
+window.addEventListener('keyup',ev=>{
+  if(ev.code==='Space'){
+    spaceDown=false;
+    if(!panning)svg.style.cursor=mode==='select'?'default':'crosshair';
+  }
+});
+
+// ── Toolbar ───────────────────────────────────
+['select','entity','weak-entity','attr','rel','weak-rel','isa','edge','frame'].forEach(m=>{
+  document.getElementById(`btn-${m}`).onclick=()=>setMode(m);
+});
+document.getElementById('btn-undo').onclick=undo;
+document.getElementById('btn-redo').onclick=redo;
+document.getElementById('btn-group').onclick=groupSel;
+document.getElementById('btn-ungroup').onclick=ungroupSel;
+document.getElementById('btn-delete').onclick=()=>{
+  if(selE){pushUndo();delEdge(selE);}
+  else if(selSet.size)delNodes([...selSet]);
+};
+document.getElementById('btn-clear').onclick=()=>{if(confirm('Clear all?')){pushUndo();nodes=[];edges=[];clearSelection();selE=null;renderAll();}};
+document.getElementById('btn-zoom-in').onclick=()=>{viewScale*=1.2;applyT();};
+document.getElementById('btn-zoom-out').onclick=()=>{viewScale/=1.2;applyT();};
+document.getElementById('btn-zoom-reset').onclick=()=>{viewX=0;viewY=0;viewScale=1;applyT();};
+document.getElementById('btn-export').onclick=exportPNG;
+document.getElementById('btn-export-pdf').onclick=exportPDF;
+document.getElementById('btn-export-html').onclick=exportHTML;
+// Theme switcher: applies to the LIVE view as well as the exported image
+document.getElementById('export-bg').addEventListener('change',ev=>{
+  document.body.classList.toggle('light',ev.target.value==='light');
+});
+
+// ── Shared export-SVG builder (used by PNG & vector-PDF export) ──
+// Builds a cleaned standalone SVG of the export area — the Frame if
+// one is drawn, otherwise auto-fit of all objects — with the chosen
+// Dark/White theme CSS and background baked in. All editing marks
+// (selection outlines, handles, region frame, guides) are stripped.
+function buildExportSVG(){
+  if(!nodes.length){alert('Nothing to export!');return null;}
+  if(selE||selSet.size){selE=null;clearSelection();closeP();renderAll();}
+  const theme=document.getElementById('export-bg').value;
+  let minX,minY,W,H;
+  if(exportRegion&&exportRegion.w>20&&exportRegion.h>20){
+    // export EXACTLY the user-drawn frame
+    minX=exportRegion.x;minY=exportRegion.y;
+    W=exportRegion.w;H=exportRegion.h;
+  }else{
+    // auto-fit all elements with generous margins
+    const PAD=80;
+    minX=Infinity;minY=Infinity;let maxX=-Infinity,maxY=-Infinity;
+    nodes.forEach(n=>{
+      minX=Math.min(minX,n.x-n.w/2-PAD);
+      minY=Math.min(minY,n.y-n.h/2-PAD);
+      maxX=Math.max(maxX,n.x+n.w/2+PAD);
+      maxY=Math.max(maxY,n.y+n.h/2+PAD);
+    });
+    // lines can be stretched/moved past their elements — include their
+    // actual endpoints (plus marker size) so nothing gets clipped
+    edges.forEach(e=>{
+      const G=edgeGeom(e), M=24;
+      minX=Math.min(minX,G.x1-M,G.x2-M);
+      minY=Math.min(minY,G.y1-M,G.y2-M);
+      maxX=Math.max(maxX,G.x1+M,G.x2+M);
+      maxY=Math.max(maxY,G.y1+M,G.y2+M);
+    });
+    W=maxX-minX;H=maxY-minY;
+  }
+  const NS='http://www.w3.org/2000/svg';
+
+  const clone=svg.cloneNode(true);
+  clone.setAttribute('xmlns',NS);
+  clone.setAttribute('viewBox',`${minX} ${minY} ${W} ${H}`);
+  clone.querySelector('rect')?.remove();
+  ['#EL','#NL','#GL'].forEach(s=>{const el=clone.querySelector(s);if(el)el.setAttribute('transform','');});
+  clone.querySelectorAll('.sel-ol').forEach(el=>el.classList.remove('sel-ol'));
+  clone.querySelectorAll('.edge-sel').forEach(el=>el.setAttribute('class','edge-line'));
+  clone.querySelectorAll('.region,.guide').forEach(el=>el.remove());
+
+  const cssDark=`
+    .ent-rect{fill:#1a1a2e;stroke:#4fc3f7;stroke-width:2}
+    .ent-inner{fill:none;stroke:#4fc3f7;stroke-width:1.2}
+    .attr-ell{fill:#1a1a2e;stroke:#81c784;stroke-width:1.5}
+    .rel-poly{fill:#2a2a3e;stroke:#ffb74d;stroke-width:1.5}
+    .rel-inner{fill:#2a2a3e;stroke:#ffb74d;stroke-width:1.5}
+    .isa-tri{fill:#2a2a3e;stroke:#ce93d8;stroke-width:1.5}
+    .nd-text{font-family:sans-serif;fill:#eee}
+    .key-ul{stroke:#eee;stroke-width:1}
+    .edge-line{stroke:#999;stroke-width:1.5;fill:none}
+    .deco-f{fill:#ccc!important}
+    .deco-s{stroke:#ccc!important}`;
+  const cssLight=`
+    .ent-rect{fill:#ffffff;stroke:#0277bd;stroke-width:2}
+    .ent-inner{fill:none;stroke:#0277bd;stroke-width:1.2}
+    .attr-ell{fill:#ffffff;stroke:#2e7d32;stroke-width:1.5}
+    .rel-poly{fill:#fffde7;stroke:#ef6c00;stroke-width:1.5}
+    .rel-inner{fill:none;stroke:#ef6c00;stroke-width:1.5}
+    .isa-tri{fill:#f3e5f5;stroke:#8e24aa;stroke-width:1.5}
+    .nd-text{font-family:sans-serif;fill:#111}
+    .key-ul{stroke:#111;stroke-width:1}
+    .edge-line{stroke:#444;stroke-width:1.5;fill:none}
+    .deco-f{fill:#444!important}
+    .deco-s{stroke:#444!important}`;
+  const styleEl=document.createElementNS(NS,'style');
+  styleEl.textContent=theme==='light'?cssLight:cssDark;
+  clone.insertBefore(styleEl,clone.firstChild);
+
+  const bg=document.createElementNS(NS,'rect');
+  bg.setAttribute('x',minX);bg.setAttribute('y',minY);
+  bg.setAttribute('width',W);bg.setAttribute('height',H);
+  bg.setAttribute('fill',theme==='light'?'#ffffff':'#1a1a2e');
+  clone.insertBefore(bg,styleEl.nextSibling);
+
+  return {clone,minX,minY,W,H,theme};
+}
+
+// ── Raster renderer for PNG export ──
+// Rasterizes the export SVG onto a canvas at the chosen resolution
+// and hands it to `done(canvas)`.
+function renderDiagram(done){
+  const ex=buildExportSVG();
+  if(!ex)return;
+  const {clone,W,H}=ex;
+  // resolution multiplier chosen by the user, safety-capped by browser canvas limits
+  let SCALE=parseInt(document.getElementById('export-scale').value,10)||3;
+  const MAXDIM=14000;
+  while(SCALE>1&&(W*SCALE>MAXDIM||H*SCALE>MAXDIM))SCALE--;
+  clone.setAttribute('width',W*SCALE);
+  clone.setAttribute('height',H*SCALE);
+  const svgStr=new XMLSerializer().serializeToString(clone);
+  const img=new Image();
+  img.onload=()=>{
+    const canvas=document.createElement('canvas');
+    canvas.width=W*SCALE;canvas.height=H*SCALE;
+    const ctx=canvas.getContext('2d');
+    ctx.imageSmoothingEnabled=true;
+    ctx.imageSmoothingQuality='high';
+    ctx.drawImage(img,0,0,W*SCALE,H*SCALE);
+    done(canvas);
+  };
+  img.onerror=()=>alert('Export failed — SVG could not be rendered.');
+  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svgStr);
+}
+
+// generic file download helper
+function downloadBlob(data,name,type){
+  const blob=data instanceof Blob?data:new Blob([data],{type});
+  const a=document.createElement('a');
+  a.download=name;a.href=URL.createObjectURL(blob);a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+
+// ── PNG Export ────────────────────────────────
+function exportPNG(){
+  renderDiagram(canvas=>{
+    const a=document.createElement('a');
+    a.download='erd-diagram.png';
+    a.href=canvas.toDataURL('image/png');
+    a.click();
+  });
+}
+
+// ── Vector PDF (print-based) ─────────────────────────────────
+// Opens a clean print view containing ONLY the diagram as vector
+// SVG — text stays selectable/searchable, shapes stay vector.
+// The user picks "Save as PDF" in the browser's print dialog.
+// No canvas, no JPEG/PNG embedding — the PDF remains vectorial.
+// Respects the Frame / auto-fit area and the Dark/White BG choice.
+function exportPDF(){
+  const ex=buildExportSVG();
+  if(!ex)return;
+  const {clone,W,H,theme}=ex;
+  clone.setAttribute('width','100%');
+  clone.setAttribute('height','100%');
+  clone.setAttribute('preserveAspectRatio','xMidYMid meet');
+  const ifr=document.createElement('iframe');
+  ifr.setAttribute('aria-hidden','true');
+  ifr.style.cssText='position:fixed;right:0;bottom:0;width:2px;height:2px;border:0;visibility:hidden';
+  document.body.appendChild(ifr);
+  const idoc=ifr.contentDocument;
+  idoc.open();
+  idoc.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>erd-diagram</title><style>'
+    +'@page{size:'+W+'px '+H+'px;margin:0}'
+    +'html,body{margin:0;padding:0;width:100%;height:100%;background:'+(theme==='light'?'#ffffff':'#1a1a2e')+'}'
+    +'svg{display:block;width:100%;height:100%}'
+    +'</style></head><body>'
+    +new XMLSerializer().serializeToString(clone)
+    +'</bo'+'dy></ht'+'ml>');
+  idoc.close();
+  // let the iframe lay out, then open the print dialog
+  setTimeout(()=>{
+    try{ifr.contentWindow.focus();ifr.contentWindow.print();}
+    catch(err){alert('Could not open the print dialog: '+err);}
+    setTimeout(()=>ifr.remove(),2000);
+  },150);
+}
+
+// ── Save HTML: download a new self-contained editor file whose
+//    DEFAULT diagram is the CURRENT editor state ─────────────────
+function exportHTML(){
+  const state={
+    nodes,edges,idSeq,viewX,viewY,viewScale,exportRegion,
+    theme:document.getElementById('export-bg').value
+  };
+  // Serialize a CLEAN copy of the page: runtime-rendered SVG content,
+  // panels and selection are stripped; the editor markup+script are kept.
+  const root=document.documentElement.cloneNode(true);
+  root.querySelectorAll('#NL,#EL,#GL').forEach(el=>{el.innerHTML='';el.removeAttribute('transform');});
+  root.querySelectorAll('.region,.guide').forEach(el=>el.remove());
+  root.querySelectorAll('#edge-panel,#node-panel,#ctx-menu').forEach(el=>{el.style.display='none';});
+  const bodyEl=root.querySelector('body');if(bodyEl)bodyEl.classList.remove('light'); // theme re-applied from state
+  let html='<!DOCTYPE html>\n'+root.outerHTML;
+  // Inject the state between the markers. The marker strings are built
+  // dynamically so the only literal occurrence in the file is the real
+  // marker at the top of the script.
+  const M='__ERD_'+'STATE__',ME='__ERD_'+'STATE_END__';
+  const re=new RegExp('/\\*'+M+'\\*/[\\s\\S]*?/\\*'+ME+'\\*/');
+  const json=JSON.stringify(state).replace(/</g,'\\u003c');
+  html=html.replace(re,'/*'+M+'*/window.__INITIAL_ERD_STATE__='+json+';/*'+ME+'*/');
+  downloadBlob(html,'erd-editor-saved.html','text/html;charset=utf-8');
+}
+
+// Restore a state that "Save HTML" embedded into this file
+function loadSavedState(s){
+  nodes=(s.nodes||[]).map(n=>({...n}));
+  edges=(s.edges||[]).map(e=>({...e}));
+  idSeq=s.idSeq||1;
+  exportRegion=s.exportRegion||null;
+  if(s.theme){
+    const sel=document.getElementById('export-bg');
+    if(sel)sel.value=s.theme;
+    document.body.classList.toggle('light',s.theme==='light');
+  }
+  renderAll();renderRegion();
+  if(typeof s.viewX==='number'&&typeof s.viewScale==='number'){
+    viewX=s.viewX;viewY=s.viewY;viewScale=s.viewScale;applyT();
+  }
+}
+
+// ── Edge panel ────────────────────────────────
+function epApply(){
+  const id=document.getElementById('edge-panel')._eid;
+  const e=edges.find(x=>x.id===id);if(!e){closeP();return;}
+  const nf=document.getElementById('ep-from').value;
+  const nt=document.getElementById('ep-to').value;
+  if(nf===(e.fromEnd||'none')&&nt===(e.toEnd||'none'))return;
+  pushUndo();
+  e.fromEnd=nf;e.toEnd=nt;
+  renderEdge(e);
+}
+document.getElementById('ep-from').addEventListener('change',epApply);
+document.getElementById('ep-to').addEventListener('change',epApply);
+document.querySelectorAll('.qp').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.getElementById('ep-from').value=b.dataset.f;
+    document.getElementById('ep-to').value=b.dataset.t;
+    epApply();
+  });
+});
+document.getElementById('ep-swap').onclick=()=>{
+  const id=document.getElementById('edge-panel')._eid;
+  const e=edges.find(x=>x.id===id);if(!e){closeP();return;}
+  pushUndo();
+  [e.from,e.to]=[e.to,e.from];
+  [e.fromEnd,e.toEnd]=[e.toEnd,e.fromEnd];
+  [e.fromOff,e.toOff]=[e.toOff,e.fromOff];
+  [e.fromGap,e.toGap]=[e.toGap,e.fromGap];
+  [e.fOx,e.tOx]=[e.tOx,e.fOx];
+  [e.fOy,e.tOy]=[e.tOy,e.fOy];
+  document.getElementById('ep-from').value=e.fromEnd||'none';
+  document.getElementById('ep-to').value=e.toEnd||'none';
+  renderEdge(e);
+};
+document.getElementById('ep-reset-line').onclick=()=>{
+  const id=document.getElementById('edge-panel')._eid;
+  const e=edges.find(x=>x.id===id);if(!e)return;
+  pushUndo();
+  delete e.fOx;delete e.fOy;delete e.tOx;delete e.tOy;
+  delete e.fromGap;delete e.toGap;delete e.fromOff;delete e.toOff;
+  renderEdge(e);
+};
+document.getElementById('ep-del').onclick=()=>{
+  const id=document.getElementById('edge-panel')._eid;
+  if(!edges.find(x=>x.id===id)){closeP();return;}
+  pushUndo();delEdge(id);closeP();
+};
+
+// ── Node panel ────────────────────────────────
+function applyNP(){
+  const id=document.getElementById('node-panel')._nid;
+  const n=nodes.find(x=>x.id===id);if(!n){closeP();return;}
+  const newLabel=document.getElementById('np-label').value||n.label;
+  if(newLabel===n.label){closeP();return;}
+  pushUndo();
+  n.label=newLabel;
+  const sz=nsz(n.type,n.label);n.w=Math.max(sz.w,n.w);n.h=Math.max(sz.h,n.h);
+  renderNode(n);refreshEdges(id);closeP();
+}
+document.getElementById('np-apply').onclick=applyNP;
+document.getElementById('np-label').addEventListener('keydown',ev=>{if(ev.key==='Enter')applyNP();});
+
+// ── Context menu ──────────────────────────────
+document.getElementById('ctx-rename').onclick=()=>{
+  const id=document.getElementById('ctx-menu')._id;
+  document.getElementById('ctx-menu').style.display='none';
+  openNodePanel(id);
+};
+document.getElementById('ctx-key').onclick=()=>{
+  const id=document.getElementById('ctx-menu')._id;
+  document.getElementById('ctx-menu').style.display='none';
+  const n=nodes.find(x=>x.id===id);if(!n)return;
+  pushUndo();n.keyAttr=!n.keyAttr;renderNode(n);
+};
+document.getElementById('ctx-weak').onclick=()=>{
+  const id=document.getElementById('ctx-menu')._id;
+  document.getElementById('ctx-menu').style.display='none';
+  const n=nodes.find(x=>x.id===id);if(!n)return;
+  pushUndo();
+  const tog={'entity':'weak-entity','weak-entity':'entity','rel':'weak-rel','weak-rel':'rel'};
+  if(tog[n.type])n.type=tog[n.type];
+  renderNode(n);
+};
+document.getElementById('ctx-group').onclick=()=>{
+  document.getElementById('ctx-menu').style.display='none';
+  groupSel();
+};
+document.getElementById('ctx-ungroup').onclick=()=>{
+  document.getElementById('ctx-menu').style.display='none';
+  ungroupSel();
+};
+document.getElementById('ctx-del').onclick=()=>{
+  const id=document.getElementById('ctx-menu')._id;
+  document.getElementById('ctx-menu').style.display='none';
+  if(selSet.has(id))delNodes([...selSet]);
+  else delNodes([id]);
+};
+document.addEventListener('click',ev=>{if(!ev.target.closest('#ctx-menu'))document.getElementById('ctx-menu').style.display='none';});
+
+// ═══════════════════════════════════════════════════════════
+// LOAD THE INTEGRATED ERD  (Stage C — Logistics ⇄ Iron Shield)
+// Three zones:
+//   LEFT   — original Equipment / Logistics system
+//   CENTER — integration layer: MilitaryEntity (+ ISA)
+//   RIGHT  — Iron Shield armory system
+// Bridge: EquipmentAssignment → Recipient → MilitaryEntity → SOLDIER / UNIT
+// (No direct link between WEAPON↔EquipmentAsset or AMMUNITION↔EquipmentStock)
+// Pure Chen ERD: no FK attributes, no join-table entities, no inherited keys in subtypes
+// ═══════════════════════════════════════════════════════════
+(function loadIntegratedERD(){
+  // A file produced by "Save HTML" carries its model here — load it instead
+  if(window.__INITIAL_ERD_STATE__){
+    try{loadSavedState(window.__INITIAL_ERD_STATE__);return;}
+    catch(err){console.error('Embedded state failed to load — falling back to default diagram.',err);}
+  }
+  nodes=[];edges=[];idSeq=1;
+
+  const ae=(f,t)=>addEdge(f.id,t.id,'none','none');            // plain spoke / many-side
+  const one=(f,t)=>addEdge(f.id,t.id,'none','round');          // "exactly one" at the t side
+  const most=(f,t)=>addEdge(f.id,t.id,'none','arrow');         // "at most one" at the t side
+
+  // ─────────────────────────────────────────────
+  // A. EQUIPMENT / LOGISTICS SYSTEM  (left zone)
+  // ─────────────────────────────────────────────
+  const cat  = addNode('entity', 360,  180,  'EquipmentCategory');
+  const typ  = addNode('entity', 360,  510,  'EquipmentType');
+  const ast  = addNode('entity', 360,  840,  'EquipmentAsset');
+  const sloc = addNode('entity', 930,  360,  'StorageLocation');
+  const asmt = addNode('entity', 1340, 840,  'EquipmentAssignment');
+  const rcpt = addNode('entity', 1340, 1265, 'Recipient');
+  const itm  = addNode('entity', 250,  1265, 'EquipmentItem');
+  const stk  = addNode('entity', 510,  1265, 'EquipmentStock');
+
+  const incl = addNode('rel', 360,  345,  'includes');          // M:N (CategoryType in the relational model)
+  const def  = addNode('rel', 360,  675,  'defines');
+  const stor = addNode('rel', 930,  640,  'stores');
+  const ptIn = addNode('rel', 870,  840,  'participates_in');
+  const recv = addNode('rel', 1340, 1055, 'receives');
+  const isa1 = addNode('isa', 360,  1090, 'ISA');
+
+  const catId = addNode('attr', 250, 80, 'category_id',{keyAttr:true});
+  const catNm = addNode('attr', 470, 80, 'category_name');
+
+  const typNm = addNode('attr', 560, 452, 'type_name');
+  const typSN = addNode('attr', 598, 512, 'requires_serial_number');
+  const typId = addNode('attr', 555, 572, 'type_id',{keyAttr:true});
+
+  const locId = addNode('attr', 790,  298, 'location_id',{keyAttr:true});
+  const locNm = addNode('attr', 920,  298, 'location_name');
+  const locTp = addNode('attr', 1055, 298, 'location_type');
+
+  const astIn = addNode('attr', 140, 772, 'intake_date');
+  const astId = addNode('attr', 140, 818, 'asset_id',{keyAttr:true});
+  const astCo = addNode('attr', 140, 864, 'condition_status');
+  const astAv = addNode('attr', 140, 910, 'availability_status');
+
+  const asmId = addNode('attr', 1245, 740, 'assignment_id',{keyAttr:true});
+  const asmDt = addNode('attr', 1395, 740, 'assignment_date');
+  const retDt = addNode('attr', 1540, 764, 'return_date');
+  const asmQy = addNode('attr', 1595, 810, 'assigned_quantity');
+  const asmSt = addNode('attr', 1605, 862, 'assignment_status');
+
+  const rcpId = addNode('attr', 1245, 1380, 'recipient_id',{keyAttr:true});
+  const rcpTp = addNode('attr', 1430, 1380, 'recipient_type');
+
+  const srlNm = addNode('attr', 250, 1370, 'serial_number',{keyAttr:true});
+  const qty   = addNode('attr', 510, 1370, 'quantity');
+
+  ae(cat,catId);ae(cat,catNm);
+  ae(typ,typNm);ae(typ,typSN);ae(typ,typId);
+  ae(sloc,locId);ae(sloc,locNm);ae(sloc,locTp);
+  ae(ast,astIn);ae(ast,astId);ae(ast,astCo);ae(ast,astAv);
+  ae(asmt,asmId);ae(asmt,asmDt);ae(asmt,retDt);ae(asmt,asmQy);ae(asmt,asmSt);
+  ae(rcpt,rcpId);ae(rcpt,rcpTp);
+  ae(itm,srlNm);ae(stk,qty);
+
+  ae(cat,incl); ae(incl,typ);            // EquipmentCategory —includes(M:N)— EquipmentType
+  ae(ast,def);  one(def,typ);            // every asset is defined by exactly one type
+  ae(ast,stor); one(stor,sloc);          // every asset is stored in exactly one location
+  ae(asmt,ptIn);one(ptIn,ast);           // every assignment refers to exactly one asset
+  ae(asmt,recv);one(recv,rcpt);          // every assignment belongs to exactly one recipient
+  ae(ast,isa1); ae(isa1,itm); ae(isa1,stk);
+
+  // ─────────────────────────────────────────────
+  // B. INTEGRATION LAYER  (center zone)
+  //    Recipient —represents→ MilitaryEntity —ISA→ SOLDIER / UNIT
+  // ─────────────────────────────────────────────
+  const repr = addNode('rel',    1755, 1265, 'represents');
+  const ment = addNode('entity', 2170, 1265, 'MilitaryEntity');
+  const isa2 = addNode('isa',    2560, 1265, 'ISA');
+
+  const menId = addNode('attr', 2015, 1130, 'entity_id',{keyAttr:true});
+  const menTp = addNode('attr', 2170, 1095, 'entity_type');
+  const menNm = addNode('attr', 2325, 1130, 'entity_name');
+  ae(ment,menId);ae(ment,menTp);ae(ment,menNm);
+
+  most(repr,rcpt);                       // a MilitaryEntity is linked to at most one Recipient
+  one(repr,ment);                        // every Recipient represents exactly one MilitaryEntity
+  ae(ment,isa2);                         // MilitaryEntity ISA → SOLDIER / UNIT (edges added below)
+
+  // ─────────────────────────────────────────────
+  // C. IRON SHIELD — ARMORY SYSTEM  (right zone)
+  // ─────────────────────────────────────────────
+  const sold = addNode('entity', 3260, 1080, 'SOLDIER');
+  const unit = addNode('entity', 2980, 1880, 'UNIT');
+  const rank = addNode('entity', 3260, 380,  'RANK');
+  const wasg = addNode('entity', 4000, 1080, 'WEAPON_ASSIGNMENT');
+  const wpn  = addNode('entity', 4740, 1080, 'WEAPON');
+  const wtyp = addNode('entity', 4740, 440,  'WEAPON_TYPE');
+  const wsts = addNode('entity', 4740, 1700, 'WEAPON_STATUS');
+  const mnt  = addNode('entity', 4180, 1560, 'MAINTENANCE');
+  const mtyp = addNode('entity', 4180, 2000, 'MAINTENANCE_TYPE');
+  const aiss = addNode('entity', 3480, 2260, 'AMMO_ISSUE');
+  const ammo = addNode('entity', 4200, 2260, 'AMMUNITION');
+  const atyp = addNode('entity', 4960, 2260, 'AMMO_TYPE');
+
+  ae(isa2,sold); ae(isa2,unit);          // SOLDIER / UNIT are specializations of MilitaryEntity
+
+  const hasR  = addNode('rel', 3260, 730,  'has');
+  const belT  = addNode('rel', 3050, 1480, 'belongs_to');
+  const cmdB  = addNode('rel', 3260, 1490, 'commanded_by');
+  const asgT  = addNode('rel', 3630, 1080, 'assigned_to');
+  const asgn  = addNode('rel', 4370, 1080, 'assigns');
+  const hTyp  = addNode('rel', 4740, 760,  'has_type');
+  const hSts  = addNode('rel', 4740, 1400, 'has_status');
+  const prfBy = addNode('rel', 3720, 1330, 'performed_by');
+  const prfOn = addNode('rel', 4460, 1330, 'performed_on');
+  const hMnT  = addNode('rel', 4180, 1780, 'has_maintenance_type');
+  const issT  = addNode('rel', 3370, 1620, 'issued_to');
+  const issu  = addNode('rel', 3840, 2260, 'issues');
+  const hAmT  = addNode('rel', 4600, 2260, 'has_ammo_type');
+
+  // SOLDIER
+  const solId = addNode('attr', 3040, 680,  'soldier_id');
+  const solFn = addNode('attr', 2900, 740,  'first_name');
+  const solLn = addNode('attr', 2790, 830,  'last_name');
+  const solEd = addNode('attr', 2720, 940,  'enlistment_date');
+  const solPh = addNode('attr', 2700, 1060, 'phone');
+  ae(sold,solId);ae(sold,solFn);ae(sold,solLn);ae(sold,solEd);ae(sold,solPh);
+
+  // UNIT
+  const untId = addNode('attr', 2620, 1790, 'unit_id');
+  const untNm = addNode('attr', 2600, 1890, 'unit_name');
+  const untCo = addNode('attr', 2640, 1990, 'company');
+  ae(unit,untId);ae(unit,untNm);ae(unit,untCo);
+
+  // RANK
+  const rnkId = addNode('attr', 3110, 270, 'rank_id',{keyAttr:true});
+  const rnkNm = addNode('attr', 3400, 270, 'rank_name');
+  ae(rank,rnkId);ae(rank,rnkNm);
+
+  // WEAPON
+  const wpnSn = addNode('attr', 5000, 950,  'serial_number',{keyAttr:true});
+  const wpnMd = addNode('attr', 5040, 1030, 'model');
+  const wpnMy = addNode('attr', 5060, 1110, 'manufacture_year');
+  const wpnEd = addNode('attr', 5010, 1190, 'entry_date');
+  ae(wpn,wpnSn);ae(wpn,wpnMd);ae(wpn,wpnMy);ae(wpn,wpnEd);
+
+  // WEAPON_TYPE
+  const wtpId = addNode('attr', 4590, 330, 'type_id',{keyAttr:true});
+  const wtpNm = addNode('attr', 4890, 330, 'type_name');
+  ae(wtyp,wtpId);ae(wtyp,wtpNm);
+
+  // WEAPON_STATUS
+  const wstId = addNode('attr', 4580, 1830, 'status_id',{keyAttr:true});
+  const wstNm = addNode('attr', 4910, 1830, 'status_name');
+  ae(wsts,wstId);ae(wsts,wstNm);
+
+  // WEAPON_ASSIGNMENT
+  const wasId = addNode('attr', 3790, 900, 'assignment_id',{keyAttr:true});
+  const wasDt = addNode('attr', 4000, 870, 'assignment_date');
+  const wasRd = addNode('attr', 4210, 900, 'return_date');
+  const wasRr = addNode('attr', 4300, 975, 'return_reason');
+  ae(wasg,wasId);ae(wasg,wasDt);ae(wasg,wasRd);ae(wasg,wasRr);
+
+  // MAINTENANCE
+  const mntId = addNode('attr', 3870, 1690, 'maintenance_id',{keyAttr:true});
+  const mntDt = addNode('attr', 3920, 1780, 'maintenance_date');
+  const mntDs = addNode('attr', 4450, 1690, 'description');
+  const mntSa = addNode('attr', 4380, 1760, 'status_after');
+  ae(mnt,mntId);ae(mnt,mntDt);ae(mnt,mntDs);ae(mnt,mntSa);
+
+  // MAINTENANCE_TYPE
+  const mtpId = addNode('attr', 3900, 2100, 'maint_type_id',{keyAttr:true});
+  const mtpNm = addNode('attr', 4460, 2100, 'type_name');
+  ae(mtyp,mtpId);ae(mtyp,mtpNm);
+
+  // AMMO_ISSUE
+  const aisId = addNode('attr', 3230, 2370, 'issue_id',{keyAttr:true});
+  const aisQy = addNode('attr', 3290, 2460, 'quantity');
+  const aisDt = addNode('attr', 3440, 2500, 'issue_date');
+  const aisPu = addNode('attr', 3590, 2450, 'purpose');
+  ae(aiss,aisId);ae(aiss,aisQy);ae(aiss,aisDt);ae(aiss,aisPu);
+
+  // AMMUNITION
+  const amoId = addNode('attr', 4020, 2400, 'ammo_id',{keyAttr:true});
+  const amoCl = addNode('attr', 4140, 2450, 'caliber');
+  const amoSq = addNode('attr', 4300, 2470, 'stock_quantity');
+  const amoMs = addNode('attr', 4460, 2410, 'minimum_stock');
+  ae(ammo,amoId);ae(ammo,amoCl);ae(ammo,amoSq);ae(ammo,amoMs);
+
+  // AMMO_TYPE
+  const atpId = addNode('attr', 4840, 2400, 'ammo_type_id',{keyAttr:true});
+  const atpNm = addNode('attr', 5080, 2400, 'type_name');
+  ae(atyp,atpId);ae(atyp,atpNm);
+
+  // Armory relationships
+  ae(sold,hasR);  one(hasR,rank);        // every soldier holds exactly one rank
+  ae(sold,belT);  one(belT,unit);        // every soldier belongs to exactly one unit
+  most(cmdB,sold);most(cmdB,unit);       // 1:1 optional — a unit is commanded by at most one soldier
+  ae(wpn,hTyp);   one(hTyp,wtyp);        // every weapon has exactly one type
+  ae(wpn,hSts);   one(hSts,wsts);        // every weapon has exactly one status
+  ae(wasg,asgn);  one(asgn,wpn);         // every weapon assignment refers to exactly one weapon
+  ae(wasg,asgT);  one(asgT,sold);        // every weapon assignment belongs to exactly one soldier
+  ae(aiss,issu);  one(issu,ammo);        // every ammo issue refers to exactly one ammunition record
+  ae(aiss,issT);  one(issT,sold);        // every ammo issue is given to exactly one soldier
+  ae(mnt,prfOn);  one(prfOn,wpn);        // every maintenance job is performed on exactly one weapon
+  ae(mnt,prfBy);  one(prfBy,sold);       // every maintenance job is performed by exactly one soldier (technician)
+  ae(mnt,hMnT);   one(hMnT,mtyp);        // every maintenance job has exactly one maintenance type
+  ae(ammo,hAmT);  one(hAmT,atyp);        // every ammunition record has exactly one ammo type
+
+  // ── Fit the whole diagram into the viewport ──
+  let mnX=Infinity,mnY=Infinity,mxX=-Infinity,mxY=-Infinity;
+  nodes.forEach(n=>{
+    mnX=Math.min(mnX,n.x-n.w/2);mnY=Math.min(mnY,n.y-n.h/2);
+    mxX=Math.max(mxX,n.x+n.w/2);mxY=Math.max(mxY,n.y+n.h/2);
+  });
+  const PAD=70,r=svg.getBoundingClientRect();
+  const vw=r.width||1200,vh=r.height||700;
+  viewScale=Math.min(vw/(mxX-mnX+2*PAD),vh/(mxY-mnY+2*PAD),1);
+  viewX=(vw-(mxX-mnX)*viewScale)/2-mnX*viewScale;
+  viewY=(vh-(mxY-mnY)*viewScale)/2-mnY*viewScale;
+  applyT();
+})();
+</script>
+</body>
+</html>

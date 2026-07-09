@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS EquipmentAssignment;
+DROP TABLE IF EXISTS EquipmentItem;
+DROP TABLE IF EXISTS EquipmentStock;
+DROP TABLE IF EXISTS EquipmentAsset;
+DROP TABLE IF EXISTS CategoryType;
+DROP TABLE IF EXISTS EquipmentType;
+DROP TABLE IF EXISTS EquipmentCategory;
+DROP TABLE IF EXISTS StorageLocation;
+DROP TABLE IF EXISTS Recipient;
