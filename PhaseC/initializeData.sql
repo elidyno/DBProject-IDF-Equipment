@@ -167,12 +167,28 @@ WHERE entity_id BETWEEN 2001 AND 2040;
 
 INSERT INTO Recipient (recipient_type, entity_id)
 SELECT
-    entity_type,
-    entity_id
-FROM MilitaryEntity
-WHERE entity_id BETWEEN 1 AND 10
-   OR entity_id BETWEEN 1001 AND 1080
-   OR entity_id BETWEEN 2001 AND 2040
+    me.entity_type,
+    s.entity_id
+FROM Soldier s
+JOIN MilitaryEntity me
+    ON s.entity_id = me.entity_id
+WHERE s.entity_id BETWEEN 1001 AND 1080
+  AND me.entity_type = 'חייל'
+
+UNION ALL
+
+SELECT
+    me.entity_type,
+    mu.entity_id
+FROM MilitaryUnit mu
+JOIN MilitaryEntity me
+    ON mu.entity_id = me.entity_id
+WHERE (
+        mu.entity_id BETWEEN 1 AND 10
+        OR mu.entity_id BETWEEN 2001 AND 2040
+      )
+  AND me.entity_type IN ('צוות', 'פלוגה', 'גדוד', 'חטיבה')
+
 ORDER BY entity_id;
 
 INSERT INTO EquipmentAsset (
