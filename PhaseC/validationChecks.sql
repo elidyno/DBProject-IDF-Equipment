@@ -82,6 +82,28 @@ WHERE r.recipient_type <> me.entity_type
 UNION ALL
 
 SELECT
+    'Recipient marked as soldier but entity is not a Soldier',
+    COUNT(*)
+FROM Recipient r
+LEFT JOIN Soldier s
+    ON r.entity_id = s.entity_id
+WHERE r.recipient_type = 'חייל'
+  AND s.entity_id IS NULL
+
+UNION ALL
+
+SELECT
+    'Recipient marked as unit but entity is not a MilitaryUnit',
+    COUNT(*)
+FROM Recipient r
+LEFT JOIN MilitaryUnit mu
+    ON r.entity_id = mu.entity_id
+WHERE r.recipient_type IN ('צוות', 'פלוגה', 'גדוד', 'חטיבה')
+  AND mu.entity_id IS NULL
+
+UNION ALL
+
+SELECT
     'Soldier without valid unit',
     COUNT(*)
 FROM Soldier s
