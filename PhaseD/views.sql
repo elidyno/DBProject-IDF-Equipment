@@ -1,6 +1,6 @@
 -- ============================================================
 -- views.sql
--- Phase D - Views for the integrated database
+-- Phase D refactor - Views for the integrated database
 -- Military Equipment Logistics + Armory System
 -- PostgreSQL / Neon
 -- ============================================================
@@ -62,7 +62,10 @@ SELECT
     s.last_name,
     rk.rank_name,
     s.unit_entity_id,
-    unit_entity.entity_name AS unit_name,
+    mu.unit_id,
+    mu.unit_name,
+    mu.unit_level,
+    mu.company,
     COALESCE(ae.active_equipment_assignment_count, 0) AS active_equipment_assignment_count,
     COALESCE(ae.active_equipment_quantity, 0) AS active_equipment_quantity,
     COALESCE(aw.active_weapon_count, 0) AS active_weapon_count,
@@ -79,8 +82,6 @@ JOIN Rank rk
     ON s.rank_id = rk.rank_id
 JOIN MilitaryUnit mu
     ON s.unit_entity_id = mu.entity_id
-JOIN MilitaryEntity unit_entity
-    ON mu.entity_id = unit_entity.entity_id
 LEFT JOIN active_equipment ae
     ON s.entity_id = ae.soldier_entity_id
 LEFT JOIN active_weapons aw
@@ -159,7 +160,7 @@ SELECT
     mu.entity_id AS unit_entity_id,
     mu.unit_id,
     mu.unit_name,
-    unit_entity.entity_name,
+    mu.unit_level,
     mu.company,
     COALESCE(sc.soldier_count, 0) AS soldier_count,
     COALESCE(se.soldier_active_equipment_assignment_count, 0) AS soldier_active_equipment_assignment_count,
@@ -170,8 +171,6 @@ SELECT
     COALESCE(ua.ammo_issue_count, 0) AS ammo_issue_count,
     COALESCE(ua.total_ammo_quantity, 0) AS total_ammo_quantity
 FROM MilitaryUnit mu
-JOIN MilitaryEntity unit_entity
-    ON mu.entity_id = unit_entity.entity_id
 LEFT JOIN soldier_count sc
     ON mu.entity_id = sc.unit_entity_id
 LEFT JOIN soldier_equipment se
