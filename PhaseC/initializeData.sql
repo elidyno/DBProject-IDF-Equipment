@@ -1,6 +1,6 @@
 -- ============================================================
 -- initializeData.sql
--- Phase C - Initial data for the integrated database
+-- Phase D refactor - Initial data for the integrated database
 -- Military Equipment Logistics + Armory System
 -- PostgreSQL / Neon
 -- ============================================================
@@ -19,35 +19,40 @@ INSERT INTO Rank (rank_id, rank_name) VALUES
 (7, 'סגן'),
 (8, 'סרן');
 
-INSERT INTO MilitaryEntity (entity_id, entity_type, entity_name) VALUES
-(1, 'חטיבה', 'חטיבת מילואים 55'),
-(2, 'גדוד', 'גדוד חי"ר 701'),
-(3, 'גדוד', 'גדוד חי"ר 702'),
-(4, 'פלוגה', 'פלוגה א'),
-(5, 'פלוגה', 'פלוגה ב'),
-(6, 'פלוגה', 'פלוגה ג'),
-(7, 'פלוגה', 'פלוגת מסייעת'),
-(8, 'צוות', 'צוות אלפא'),
-(9, 'צוות', 'צוות ברק'),
-(10, 'צוות', 'צוות גולן');
+INSERT INTO MilitaryEntity (entity_id) VALUES
+(1),
+(2),
+(3),
+(4),
+(5),
+(6),
+(7),
+(8),
+(9),
+(10);
 
-INSERT INTO MilitaryUnit (entity_id, unit_id, unit_name, company, commander_entity_id) VALUES
-(1, 'BDE-55', 'חטיבת מילואים 55', NULL, NULL),
-(2, 'BN-701', 'גדוד חי"ר 701', NULL, NULL),
-(3, 'BN-702', 'גדוד חי"ר 702', NULL, NULL),
-(4, 'CO-A', 'פלוגה א', 'א', NULL),
-(5, 'CO-B', 'פלוגה ב', 'ב', NULL),
-(6, 'CO-C', 'פלוגה ג', 'ג', NULL),
-(7, 'CO-S', 'פלוגת מסייעת', 'מסייעת', NULL),
-(8, 'TM-A', 'צוות אלפא', 'א', NULL),
-(9, 'TM-B', 'צוות ברק', 'ב', NULL),
-(10, 'TM-G', 'צוות גולן', 'ג', NULL);
+INSERT INTO MilitaryUnit (
+    entity_id,
+    unit_id,
+    unit_name,
+    unit_level,
+    company,
+    commander_entity_id
+) VALUES
+(1, 'BDE-55', 'חטיבת מילואים 55', 'חטיבה', NULL, NULL),
+(2, 'BN-701', 'גדוד חי"ר 701', 'גדוד', NULL, NULL),
+(3, 'BN-702', 'גדוד חי"ר 702', 'גדוד', NULL, NULL),
+(4, 'CO-A', 'פלוגה א', 'פלוגה', 'א', NULL),
+(5, 'CO-B', 'פלוגה ב', 'פלוגה', 'ב', NULL),
+(6, 'CO-C', 'פלוגה ג', 'פלוגה', 'ג', NULL),
+(7, 'CO-S', 'פלוגת מסייעת', 'פלוגה', 'מסייעת', NULL),
+(8, 'TM-A', 'צוות אלפא', 'צוות', 'א', NULL),
+(9, 'TM-B', 'צוות ברק', 'צוות', 'ב', NULL),
+(10, 'TM-G', 'צוות גולן', 'צוות', 'ג', NULL);
 
-INSERT INTO MilitaryEntity (entity_id, entity_type, entity_name)
+INSERT INTO MilitaryEntity (entity_id)
 SELECT
-    1000 + gs,
-    'חייל',
-    'חייל ' || gs
+    1000 + gs
 FROM generate_series(1, 120) AS gs;
 
 INSERT INTO Soldier (
@@ -139,55 +144,51 @@ INSERT INTO StorageLocation (location_id, location_name, location_type) VALUES
 (9, 'מחסן שטח', 'מחסן'),
 (10, 'אזור ציוד פגום', 'אזור אחסון');
 
-INSERT INTO MilitaryEntity (entity_id, entity_type, entity_name)
+INSERT INTO MilitaryEntity (entity_id)
+SELECT
+    2000 + gs
+FROM generate_series(1, 40) AS gs;
+
+INSERT INTO MilitaryUnit (
+    entity_id,
+    unit_id,
+    unit_name,
+    unit_level,
+    company,
+    commander_entity_id
+)
 SELECT
     2000 + gs,
+    'EXT-' || (2000 + gs),
+    'גורם מקבל נוסף ' || gs,
     CASE
         WHEN gs <= 5 THEN 'חטיבה'
         WHEN gs <= 15 THEN 'גדוד'
         WHEN gs <= 35 THEN 'פלוגה'
         ELSE 'צוות'
     END,
-    'גורם מקבל נוסף ' || gs
-FROM generate_series(1, 40) AS gs;
-
-INSERT INTO MilitaryUnit (entity_id, unit_id, unit_name, company, commander_entity_id)
-SELECT
-    entity_id,
-    'EXT-' || entity_id,
-    entity_name,
     CASE
-        WHEN entity_type = 'פלוגה' THEN 'מילואים'
-        WHEN entity_type = 'צוות' THEN 'צוות'
-        ELSE NULL
+        WHEN gs <= 5 THEN NULL
+        WHEN gs <= 15 THEN NULL
+        WHEN gs <= 35 THEN 'מילואים'
+        ELSE 'צוות'
     END,
     NULL
-FROM MilitaryEntity
-WHERE entity_id BETWEEN 2001 AND 2040;
+FROM generate_series(1, 40) AS gs;
 
-INSERT INTO Recipient (recipient_type, entity_id)
+INSERT INTO Recipient (entity_id)
 SELECT
-    me.entity_type,
     s.entity_id
 FROM Soldier s
-JOIN MilitaryEntity me
-    ON s.entity_id = me.entity_id
 WHERE s.entity_id BETWEEN 1001 AND 1080
-  AND me.entity_type = 'חייל'
 
 UNION ALL
 
 SELECT
-    me.entity_type,
     mu.entity_id
 FROM MilitaryUnit mu
-JOIN MilitaryEntity me
-    ON mu.entity_id = me.entity_id
-WHERE (
-        mu.entity_id BETWEEN 1 AND 10
-        OR mu.entity_id BETWEEN 2001 AND 2040
-      )
-  AND me.entity_type IN ('צוות', 'פלוגה', 'גדוד', 'חטיבה')
+WHERE mu.entity_id BETWEEN 1 AND 10
+   OR mu.entity_id BETWEEN 2001 AND 2040
 
 ORDER BY entity_id;
 
