@@ -11,14 +11,18 @@
 require('dotenv').config();
 
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const { Pool } = require('pg');
 
 const app = express();
-
-// Open CORS - acceptable for this course demo.
 app.use(cors());
 app.use(express.json());
+
+
+// Serve the Phase E frontend from the same local server.
+const frontendPath = path.join(__dirname, '..', 'frontend');
+app.use(express.static(frontendPath));
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
